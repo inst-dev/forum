@@ -469,11 +469,18 @@ export async function threadRoutes(app: FastifyInstance) {
     });
   });
 
-  // Suggested threads (X-algorithm: recommend based on user's most liked posts)
+  // Suggested threads (recommendation engine: reactions + followed users + engagement signals)
   app.get('/suggested', { preHandler: [authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
     const user = (request as any).user as JWTPayload;
     const { limit = '10' } = request.query as { limit?: string };
     const limitNum = Math.min(parseInt(limit), 30);
+
+    // Get user's followed users
+    const follows = await prisma.follow.findMany({
+      where: { followerId: user.userId },
+      select: { followingId: true },
+    });
+    const followedUserIds = follows.map(f => f.followingId);
 
     // Get user's recent reactions to find engagement patterns
     const userReactions = await prisma.reaction.findMany({
@@ -483,8 +490,8 @@ export async function threadRoutes(app: FastifyInstance) {
       take: 50,
     });
 
-    if (userReactions.length === 0) {
-      // No engagement history - return popular threads
+    if (userReactions.length === 0 && followedUserIds.length === 0) {
+      // No engagement history and no follows - return popular threads
       const popular = await prisma.thread.findMany({
         where: { deletedAt: null, status: { not: 'ARCHIVED' } },
         select: {
@@ -507,7 +514,7 @@ export async function threadRoutes(app: FastifyInstance) {
       select: { id: true, forumId: true, authorId: true, tags: { select: { tagId: true } } },
     });
 
-    // Calculate engagement weights (like X's weighted scorer)
+    // Calculate engagement weights
     const reactionWeights: Record<string, number> = {
       like: 1.0, love: 1.5, helpful: 2.0, funny: 0.8, sad: 0.3, angry: -0.5,
     };
@@ -515,6 +522,7 @@ export async function threadRoutes(app: FastifyInstance) {
     const authorScores: Record<string, number> = {};
     const tagScores: Record<string, number> = {};
 
+    // Score from reactions
     reactedThreads.forEach((thread, idx) => {
       const reaction = userReactions.find(r => r.threadId === thread.id);
       const weight = reactionWeights[reaction?.type || 'like'] || 1.0;
@@ -526,9 +534,22 @@ export async function threadRoutes(app: FastifyInstance) {
       thread.tags.forEach(t => { tagScores[t.tagId] = (tagScores[t.tagId] || 0) + score; });
     });
 
+    // Boost followed users with high affinity score
+    followedUserIds.forEach(uid => {
+      authorScores[uid] = (authorScores[uid] || 0) + 5.0;
+    });
+
     const topForums = Object.entries(forumScores).sort((a, b) => b[1] - a[1]).slice(0, 5).map(e => e[0]);
-    const topAuthors = Object.entries(authorScores).sort((a, b) => b[1] - a[1]).slice(0, 10).map(e => e[0]);
+    const topAuthors = Object.entries(authorScores).sort((a, b) => b[1] - a[1]).slice(0, 15).map(e => e[0]);
     const topTags = Object.entries(tagScores).sort((a, b) => b[1] - a[1]).slice(0, 10).map(e => e[0]);
+
+    // Build OR conditions for candidate fetching
+    const orConditions: any[] = [];
+    if (topForums.length > 0) orConditions.push({ forumId: { in: topForums } });
+    if (topAuthors.length > 0) orConditions.push({ authorId: { in: topAuthors } });
+    if (topTags.length > 0) orConditions.push({ tags: { some: { tagId: { in: topTags } } } });
+    // Always include posts from followed users
+    if (followedUserIds.length > 0) orConditions.push({ authorId: { in: followedUserIds } });
 
     // Fetch candidates not already reacted to
     const candidates = await prisma.thread.findMany({
@@ -536,11 +557,7 @@ export async function threadRoutes(app: FastifyInstance) {
         deletedAt: null, status: { not: 'ARCHIVED' },
         id: { notIn: reactedThreadIds },
         authorId: { not: user.userId },
-        OR: [
-          { forumId: { in: topForums } },
-          { authorId: { in: topAuthors } },
-          ...(topTags.length > 0 ? [{ tags: { some: { tagId: { in: topTags } } } }] : []),
-        ],
+        ...(orConditions.length > 0 ? { OR: orConditions } : {}),
       },
       select: {
         id: true, title: true, slug: true, type: true, viewCount: true,
@@ -557,22 +574,29 @@ export async function threadRoutes(app: FastifyInstance) {
     // Score each candidate
     const scored = candidates.map(thread => {
       let score = 0;
+      // Forum affinity
       score += (forumScores[thread.forumId] || 0) * 2.0;
+      // Author affinity (includes followed users boost)
       score += (authorScores[thread.authorId] || 0) * 1.5;
+      // Tag affinity
       thread.tags.forEach(t => { score += (tagScores[t.tagId] || 0) * 1.0; });
+      // Engagement signals
       score += Math.log1p(thread.reactionCount) * 0.5;
       score += Math.log1p(thread.commentCount) * 0.3;
+      // Recency boost (posts from last 7 days)
       const ageHours = (Date.now() - new Date(thread.createdAt).getTime()) / 3600000;
       if (ageHours < 168) score *= 1.0 + (168 - ageHours) / 168;
+      // Extra boost for followed users' posts
+      if (followedUserIds.includes(thread.authorId)) score += 3.0;
       return { ...thread, _score: score };
     });
 
-    // Sort by score, apply author diversity
+    // Sort by score, apply author diversity (max 3 from same author)
     scored.sort((a, b) => b._score - a._score);
     const authorCount: Record<string, number> = {};
     const diversified = scored.filter(t => {
       const count = authorCount[t.authorId] || 0;
-      if (count >= 2) return false;
+      if (count >= 3) return false;
       authorCount[t.authorId] = count + 1;
       return true;
     }).slice(0, limitNum);
