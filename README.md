@@ -35,6 +35,7 @@ app name: NullForum (use it with .env file coz maybe it changing later. for now 
 ## Frontend
 
 - Next.js latest App Router
+- Only use JSX. No TSX
 - React latest
 - React Server Components wherever possible
 - TypeScript strict mode
