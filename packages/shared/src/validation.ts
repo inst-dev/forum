@@ -71,7 +71,7 @@ export const createThreadSchema = z.object({
   content: z.string().min(10).max(50000),
   type: z.enum(['DISCUSSION', 'QUESTION', 'POLL', 'ANNOUNCEMENT']).default('DISCUSSION'),
   prefixId: z.string().uuid().optional(),
-  tags: z.array(z.string().max(30)).max(5).optional(),
+  tags: z.array(z.string().min(1).max(30)).max(10).optional(),
   poll: z.object({
     question: z.string().min(5).max(200),
     options: z.array(z.string().min(1).max(100)).min(2).max(10),
