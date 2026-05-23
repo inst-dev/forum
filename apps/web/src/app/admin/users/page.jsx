@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { clientApi } from '@/lib/api';
+import { toast } from 'sonner';
 
 export default function AdminUsersPage() {
   const { user } = useAuth();
@@ -22,7 +23,8 @@ export default function AdminUsersPage() {
 
   const handleAction = async (userId, action, reason = '') => {
     const res = await clientApi.post('/admin/users/action', { userId, action, reason: reason || `Admin action: ${action}` });
-    if (res.success) loadUsers();
+    if (res.success) { toast.success(`${action} applied successfully`); loadUsers(); }
+    else toast.error(res.error?.message || `Failed to ${action.toLowerCase()} user`);
   };
 
   if (!user || user.role !== 'ADMIN') return <div className="uc4m9n"><p>Access denied.</p></div>;

@@ -4,6 +4,7 @@ import helmet from '@fastify/helmet';
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
 import multipart from '@fastify/multipart';
+import { prisma } from '@nullforum/database';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import { authRoutes } from './routes/auth';
@@ -75,6 +76,15 @@ async function start() {
 
   // Health check
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
+
+  // Public site settings (non-sensitive, for frontend providers)
+  app.get('/api/site-settings', async (request, reply) => {
+    const settings = await prisma.siteSetting.findMany({
+      where: { key: { in: ['site_name', 'site_description', 'site_logo', 'site_favicon', 'primary_color', 'maintenance_mode', 'registration_enabled'] } },
+    });
+    const mapped = settings.reduce((acc: any, s: any) => { acc[s.key] = s.value; return acc; }, {});
+    return reply.send({ success: true, data: mapped });
+  });
 
   // API Routes
   await app.register(authRoutes, { prefix: '/api/auth' });

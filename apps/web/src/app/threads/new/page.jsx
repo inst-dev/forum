@@ -13,14 +13,24 @@ export default function NewThreadPage() {
   return (<Suspense fallback={<div className="uc4m9n"><div className="tb2k7l" /></div>}><NewThreadContent /></Suspense>);
 }
 
+const TAG_COLORS = ['#1a73e8', '#e91e63', '#9c27b0', '#00bcd4', '#ff9800', '#4caf50', '#f44336', '#3f51b5'];
+function getTagColor(tag) { let h = 0; for (let i = 0; i < tag.length; i++) h = tag.charCodeAt(i) + ((h << 5) - h); return TAG_COLORS[Math.abs(h) % TAG_COLORS.length]; }
+
 function NewThreadContent() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialForumId = searchParams.get('forum') || '';
 
-  const [form, setForm] = useState({ title: '', content: '', type: 'DISCUSSION', forumId: initialForumId, tags: '' });
+  const [form, setForm] = useState({ title: '', content: '', type: 'DISCUSSION', forumId: initialForumId });
+  const [tags, setTags] = useState([]);
+  const [tagInput, setTagInput] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const addTag = (val) => { const t = val.trim().toLowerCase(); if (t && !tags.includes(t) && tags.length < 10) setTags([...tags, t]); setTagInput(''); };
+  const removeTag = (t) => setTags(tags.filter(x => x !== t));
+  const handleTagKeyDown = (e) => { if (e.key === ',' || e.key === 'Enter') { e.preventDefault(); addTag(tagInput); } else if (e.key === 'Backspace' && !tagInput && tags.length) setTags(tags.slice(0, -1)); };
+  const handleTagChange = (e) => { const v = e.target.value; if (v.includes(',')) { v.split(',').forEach((p, i, a) => { if (i < a.length - 1) addTag(p); }); setTagInput(v.split(',').pop()); } else setTagInput(v); };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,9 +39,8 @@ function NewThreadContent() {
     if (form.content.length < 10) { toast.error('Content must be at least 10 characters'); return; }
 
     setLoading(true);
-    const tags = form.tags ? form.tags.split(',').map(t => t.trim()).filter(t => t.length > 0) : undefined;
     const payload = { forumId: form.forumId, title: form.title, content: form.content, type: form.type };
-    if (tags && tags.length > 0) payload.tags = tags;
+    if (tags.length > 0) payload.tags = tags;
     const res = await clientApi.post('/threads', payload);
     setLoading(false);
 
@@ -74,8 +83,18 @@ function NewThreadContent() {
           <RichEditor value={form.content} onChange={v => setForm({ ...form, content: v })} placeholder="Write your thread content here..." />
         </div>
         <div className="bj4a9b">
-          <label className="ck6c1d">Tags (comma separated)</label>
-          <input className="dl8e3f" value={form.tags} onChange={e => setForm({ ...form, tags: e.target.value })} placeholder="nextjs, react, tutorial" />
+          <label className="ck6c1d">Tags {tags.length > 0 && <span style={{ color: 'var(--c-text-muted)', fontWeight: 400 }}>({tags.length}/10)</span>}</label>
+          <div className="tg1c8w">
+            {tags.map(tag => (
+              <span key={tag} className="tg2d9x" style={{ background: getTagColor(tag) + '20', color: getTagColor(tag), borderColor: getTagColor(tag) + '40' }}>
+                {tag}
+                <button type="button" onClick={() => removeTag(tag)} className="tg3e0y" style={{ color: getTagColor(tag) }}>&times;</button>
+              </span>
+            ))}
+            {tags.length < 10 && (
+              <input className="tg4f1z" value={tagInput} onChange={handleTagChange} onKeyDown={handleTagKeyDown} onBlur={() => tagInput && addTag(tagInput)} placeholder={tags.length === 0 ? 'Type tag and press comma...' : ''} />
+            )}
+          </div>
         </div>
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
           <button type="button" className="qy2e7f tb8k3l" onClick={() => router.back()}>Cancel</button>
