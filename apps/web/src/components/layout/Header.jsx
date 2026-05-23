@@ -26,8 +26,8 @@ export function Header() {
       <div className="xk2m9f jf2m7l">
         <div className="mv8t2u">
           <Link href="/" className="kw5p9n" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {siteLogo && <img src={siteLogo} alt="" style={{ height: '28px', width: 'auto', borderRadius: '4px' }} />}
-            {!siteLogo && siteName}
+            {siteLogo && <img src={siteLogo} alt={siteName} style={{ height: '28px', width: 'auto', borderRadius: '4px' }} />}
+            <span>{siteName}</span>
           </Link>
         </div>
 

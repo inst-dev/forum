@@ -8,27 +8,64 @@ import { TimeAgo } from '@/components/ui/TimeAgo';
 import { buildThreadUrl } from '@/lib/thread-url';
 
 export function SuggestedThreads() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [threads, setThreads] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [algorithm, setAlgorithm] = useState('');
 
   useEffect(() => {
-    if (!user) { setLoading(false); return; }
+    if (authLoading) return;
+
     async function fetchSuggested() {
-      const res = await clientApi.get('/threads/suggested?limit=5');
-      if (res.success) setThreads(res.data);
+      try {
+        if (user) {
+          const res = await clientApi.get('/threads/suggested?limit=6');
+          if (res.success && res.data?.length > 0) {
+            setThreads(res.data);
+            setAlgorithm(res.meta?.algorithm || 'engagement_weighted');
+          } else {
+            await fetchPopular();
+          }
+        } else {
+          await fetchPopular();
+        }
+      } catch {
+        await fetchPopular();
+      }
       setLoading(false);
     }
-    fetchSuggested();
-  }, [user]);
 
-  if (!user || loading || threads.length === 0) return null;
+    async function fetchPopular() {
+      try {
+        const res = await clientApi.get('/threads?limit=6&sort=popular');
+        if (res.success && res.data?.length > 0) {
+          setThreads(res.data);
+          setAlgorithm('trending');
+        }
+      } catch {}
+    }
+
+    fetchSuggested();
+  }, [user, authLoading]);
+
+  if (loading || threads.length === 0) return null;
+
+  const isPersonalized = user && algorithm === 'engagement_weighted';
+  const sectionTitle = isPersonalized ? 'Recommended For You' : 'Trending Threads';
+  const badgeText = isPersonalized ? 'Personalized' : 'Popular now';
 
   return (
     <section className="xf6s1t" style={{ padding: 0, overflow: 'hidden' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--c-border-light)' }}>
-        <h2 style={{ fontSize: '16px', fontWeight: 600 }}>Suggested For You</h2>
-        <span style={{ fontSize: '12px', padding: '2px 8px', borderRadius: '10px', background: 'var(--c-accent-light)', color: 'var(--c-accent)' }}>Based on your activity</span>
+        <h2 style={{ fontSize: '16px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--c-accent)' }}>
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+          </svg>
+          {sectionTitle}
+        </h2>
+        <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '12px', background: 'var(--c-accent-light)', color: 'var(--c-accent)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+          {badgeText}
+        </span>
       </div>
       <div>
         {threads.map(thread => (
@@ -46,7 +83,7 @@ export function SuggestedThreads() {
             </div>
             <div className="ow0a5b">
               <span>{thread.commentCount} replies</span>
-              <span>{thread.reactionCount} likes</span>
+              <span>{thread.viewCount} views</span>
             </div>
           </Link>
         ))}
