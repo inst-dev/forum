@@ -1,0 +1,878 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== USER SYSTEM ====================
+
+model User {
+  id                String   @id @default(uuid())
+  email             String   @unique
+  username          String   @unique
+  displayName       String?
+  firstName         String
+  lastName          String
+  passwordHash      String?
+  avatar            String?
+  banner            String?
+  bio               String?  @db.Text
+  signature         String?  @db.Text
+  statusMessage     String?
+  location          String?
+  birthdate         DateTime?
+  website           String?
+  twitter           String?
+  github            String?
+  discord           String?
+  youtube           String?
+  
+  role              Role     @default(USER)
+  memberStatus      String   @default("New Member")
+  points            Int      @default(0)
+  reactionScore     Int      @default(0)
+  level             Int      @default(1)
+  
+  isVerified        Boolean  @default(false)
+  isEmailVerified   Boolean  @default(false)
+  isBanned          Boolean  @default(false)
+  isMuted           Boolean  @default(false)
+  isShadowBanned    Boolean  @default(false)
+  isSuspended       Boolean  @default(false)
+  suspendedUntil    DateTime?
+  mutedUntil        DateTime?
+  banReason         String?
+  
+  usernameChanged   Boolean  @default(false)
+  language          String   @default("en")
+  theme             String   @default("system")
+  
+  emailVerifyToken  String?
+  passwordResetToken String?
+  passwordResetExpiry DateTime?
+  
+  twoFactorEnabled  Boolean  @default(false)
+  twoFactorSecret   String?
+  
+  lastSeen          DateTime?
+  lastLoginIp       String?
+  loginCount        Int      @default(0)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  deletedAt         DateTime?
+
+  // Relations
+  threads           Thread[]
+  comments          Comment[]
+  reactions         Reaction[]
+  sentMessages      DirectMessage[] @relation("SentMessages")
+  receivedMessages  DirectMessage[] @relation("ReceivedMessages")
+  notifications     Notification[] @relation("UserNotifications")
+  actorNotifications Notification[] @relation("ActorNotifications")
+  sessions          Session[]
+  loginHistory      LoginHistory[]
+  privacySettings   PrivacySettings?
+  notificationPrefs NotificationPrefs?
+  oauthAccounts     OAuthAccount[]
+  badges            UserBadge[]
+  followers         Follow[] @relation("Following")
+  following         Follow[] @relation("Followers")
+  blockedUsers      Block[] @relation("Blocker")
+  blockedBy         Block[] @relation("Blocked")
+  bookmarks         Bookmark[]
+  watchedThreads    WatchedThread[]
+  reports           Report[] @relation("Reporter")
+  reportedReports   Report[] @relation("Reported")
+  moderationActions ModerationAction[] @relation("ModeratedUser")
+  moderatorActions  ModerationAction[] @relation("Moderator")
+  auditLogs         AuditLog[]
+  pollVotes         PollVote[]
+  threadDrafts      ThreadDraft[]
+  usernameRequests  UsernameChangeRequest[]
+  conversationMembers ConversationMember[]
+  
+  @@index([email])
+  @@index([username])
+  @@index([role])
+  @@index([isBanned])
+  @@index([createdAt])
+  @@index([points])
+  @@index([deletedAt])
+}
+
+model PrivacySettings {
+  id              String  @id @default(uuid())
+  userId          String  @unique
+  hideProfile     Boolean @default(false)
+  hideOnlineStatus Boolean @default(false)
+  hideLastSeen    Boolean @default(false)
+  hideReactions   Boolean @default(false)
+  hideFollowers   Boolean @default(false)
+  hideBirthdate   Boolean @default(false)
+  hideMessages    Boolean @default(false)
+  hideEmail       Boolean @default(true)
+  
+  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model NotificationPrefs {
+  id              String  @id @default(uuid())
+  userId          String  @unique
+  emailMentions   Boolean @default(true)
+  emailReplies    Boolean @default(true)
+  emailMessages   Boolean @default(true)
+  emailFollows    Boolean @default(true)
+  emailDigest     String  @default("daily")
+  pushEnabled     Boolean @default(true)
+  pushMentions    Boolean @default(true)
+  pushReplies     Boolean @default(true)
+  pushMessages    Boolean @default(true)
+  
+  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model OAuthAccount {
+  id              String   @id @default(uuid())
+  userId          String
+  provider        String
+  providerAccountId String
+  accessToken     String?  @db.Text
+  refreshToken    String?  @db.Text
+  expiresAt       DateTime?
+  
+  createdAt       DateTime @default(now())
+  
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id              String   @id @default(uuid())
+  userId          String
+  token           String   @unique
+  refreshToken    String   @unique
+  deviceInfo      String?
+  ipAddress       String?
+  userAgent       String?  @db.Text
+  isActive        Boolean  @default(true)
+  lastUsed        DateTime @default(now())
+  expiresAt       DateTime
+  
+  createdAt       DateTime @default(now())
+  
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([token])
+  @@index([refreshToken])
+  @@index([expiresAt])
+}
+
+model LoginHistory {
+  id              String   @id @default(uuid())
+  userId          String
+  ipAddress       String
+  userAgent       String?  @db.Text
+  location        String?
+  success         Boolean
+  failReason      String?
+  
+  createdAt       DateTime @default(now())
+  
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([createdAt])
+  @@index([ipAddress])
+}
+
+model UsernameChangeRequest {
+  id               String   @id @default(uuid())
+  userId           String
+  currentUsername  String
+  requestedUsername String
+  reason           String   @db.Text
+  status           RequestStatus @default(PENDING)
+  adminNote        String?
+  reviewedBy       String?
+  reviewedAt       DateTime?
+  
+  createdAt        DateTime @default(now())
+  
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([status])
+}
+
+// ==================== FORUM SYSTEM ====================
+
+model Category {
+  id              String   @id @default(uuid())
+  name            String
+  description     String?  @db.Text
+  slug            String   @unique
+  sortOrder       Int      @default(0)
+  isActive        Boolean  @default(true)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  forums          Forum[]
+  
+  @@index([sortOrder])
+}
+
+model Forum {
+  id              String   @id @default(uuid())
+  name            String
+  description     String?  @db.Text
+  slug            String   @unique
+  icon            String?
+  sortOrder       Int      @default(0)
+  isActive        Boolean  @default(true)
+  isPrivate       Boolean  @default(false)
+  
+  categoryId      String
+  parentId        String?
+  
+  threadCount     Int      @default(0)
+  commentCount    Int      @default(0)
+  lastThreadId    String?
+  lastThreadAt    DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  category        Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  parent          Forum?   @relation("SubForums", fields: [parentId], references: [id])
+  children        Forum[]  @relation("SubForums")
+  threads         Thread[]
+  prefixes        ThreadPrefix[]
+  
+  @@index([categoryId])
+  @@index([parentId])
+  @@index([slug])
+  @@index([sortOrder])
+}
+
+model ThreadPrefix {
+  id              String   @id @default(uuid())
+  name            String
+  color           String   @default("#666666")
+  forumId         String
+  
+  forum           Forum    @relation(fields: [forumId], references: [id], onDelete: Cascade)
+  threads         Thread[]
+  
+  @@index([forumId])
+}
+
+model Thread {
+  id              String       @id @default(uuid())
+  title           String
+  slug            String
+  content         String       @db.LongText
+  type            ThreadType   @default(DISCUSSION)
+  status          ThreadStatus @default(OPEN)
+  
+  authorId        String
+  forumId         String
+  prefixId        String?
+  
+  viewCount       Int          @default(0)
+  commentCount    Int          @default(0)
+  reactionCount   Int          @default(0)
+  
+  isPinned        Boolean      @default(false)
+  isSticky        Boolean      @default(false)
+  isLocked        Boolean      @default(false)
+  isFeatured      Boolean      @default(false)
+  
+  lastCommentAt   DateTime?
+  lastCommentById String?
+  scheduledAt     DateTime?
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  deletedAt       DateTime?
+  
+  author          User         @relation(fields: [authorId], references: [id])
+  forum           Forum        @relation(fields: [forumId], references: [id])
+  prefix          ThreadPrefix? @relation(fields: [prefixId], references: [id])
+  comments        Comment[]
+  reactions       Reaction[]
+  tags            ThreadTag[]
+  bookmarks       Bookmark[]
+  watchers        WatchedThread[]
+  reports         Report[]
+  revisions       ThreadRevision[]
+  poll            Poll?
+  attachments     Attachment[]
+  
+  @@index([authorId])
+  @@index([forumId])
+  @@index([slug])
+  @@index([status])
+  @@index([isPinned])
+  @@index([isSticky])
+  @@index([createdAt])
+  @@index([lastCommentAt])
+  @@index([deletedAt])
+  @@fulltext([title, content])
+}
+
+model ThreadRevision {
+  id              String   @id @default(uuid())
+  threadId        String
+  title           String
+  content         String   @db.LongText
+  editedBy        String
+  editReason      String?
+  
+  createdAt       DateTime @default(now())
+  
+  thread          Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  
+  @@index([threadId])
+}
+
+model ThreadDraft {
+  id              String   @id @default(uuid())
+  userId          String
+  forumId         String?
+  title           String?
+  content         String?  @db.LongText
+  type            String   @default("DISCUSSION")
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+}
+
+model Tag {
+  id              String      @id @default(uuid())
+  name            String      @unique
+  slug            String      @unique
+  usageCount      Int         @default(0)
+  
+  createdAt       DateTime    @default(now())
+  
+  threads         ThreadTag[]
+  
+  @@index([slug])
+  @@index([usageCount])
+}
+
+model ThreadTag {
+  threadId        String
+  tagId           String
+  
+  thread          Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  tag             Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  
+  @@id([threadId, tagId])
+}
+
+// ==================== COMMENT SYSTEM ====================
+
+model Comment {
+  id              String   @id @default(uuid())
+  content         String   @db.Text
+  authorId        String
+  threadId        String
+  parentId        String?
+  quotedCommentId String?
+  
+  reactionCount   Int      @default(0)
+  isEdited        Boolean  @default(false)
+  editCount       Int      @default(0)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+  
+  author          User     @relation(fields: [authorId], references: [id])
+  thread          Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  parent          Comment? @relation("CommentReplies", fields: [parentId], references: [id])
+  replies         Comment[] @relation("CommentReplies")
+  reactions       Reaction[]
+  reports         Report[]
+  attachments     Attachment[]
+  
+  @@index([authorId])
+  @@index([threadId])
+  @@index([parentId])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@fulltext([content])
+}
+
+// ==================== POLL SYSTEM ====================
+
+model Poll {
+  id              String      @id @default(uuid())
+  threadId        String      @unique
+  question        String
+  allowMultiple   Boolean     @default(false)
+  totalVotes      Int         @default(0)
+  expiresAt       DateTime?
+  
+  createdAt       DateTime    @default(now())
+  
+  thread          Thread      @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  options         PollOption[]
+  votes           PollVote[]
+}
+
+model PollOption {
+  id              String     @id @default(uuid())
+  pollId          String
+  text            String
+  voteCount       Int        @default(0)
+  sortOrder       Int        @default(0)
+  
+  poll            Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes           PollVote[]
+  
+  @@index([pollId])
+}
+
+model PollVote {
+  id              String     @id @default(uuid())
+  pollId          String
+  optionId        String
+  userId          String
+  
+  createdAt       DateTime   @default(now())
+  
+  poll            Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  option          PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([pollId, userId, optionId])
+  @@index([pollId])
+  @@index([userId])
+}
+
+// ==================== REACTION SYSTEM ====================
+
+model Reaction {
+  id              String       @id @default(uuid())
+  type            ReactionType
+  userId          String
+  threadId        String?
+  commentId       String?
+  
+  createdAt       DateTime     @default(now())
+  
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  thread          Thread?      @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  comment         Comment?     @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, threadId, type])
+  @@unique([userId, commentId, type])
+  @@index([threadId])
+  @@index([commentId])
+  @@index([userId])
+}
+
+// ==================== MESSAGING SYSTEM ====================
+
+model Conversation {
+  id              String   @id @default(uuid())
+  lastMessageAt   DateTime?
+  lastMessageId   String?
+  messageCount    Int      @default(0)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  members         ConversationMember[]
+  messages        DirectMessage[]
+  
+  @@index([lastMessageAt])
+}
+
+model ConversationMember {
+  id              String   @id @default(uuid())
+  conversationId  String
+  userId          String
+  lastReadAt      DateTime?
+  isArchived      Boolean  @default(false)
+  isMuted         Boolean  @default(false)
+  
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model DirectMessage {
+  id              String   @id @default(uuid())
+  conversationId  String
+  senderId        String
+  recipientId     String
+  content         String   @db.Text
+  isRead          Boolean  @default(false)
+  readAt          DateTime?
+  
+  createdAt       DateTime @default(now())
+  deletedAt       DateTime?
+  
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender          User     @relation("SentMessages", fields: [senderId], references: [id])
+  recipient       User     @relation("ReceivedMessages", fields: [recipientId], references: [id])
+  attachments     Attachment[]
+  
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([recipientId])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+// ==================== NOTIFICATION SYSTEM ====================
+
+model Notification {
+  id              String   @id @default(uuid())
+  userId          String
+  actorId         String?
+  type            String
+  title           String
+  message         String
+  link            String?
+  isRead          Boolean  @default(false)
+  readAt          DateTime?
+  
+  createdAt       DateTime @default(now())
+  
+  user            User     @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  actor           User?    @relation("ActorNotifications", fields: [actorId], references: [id])
+  
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@index([actorId])
+}
+
+// ==================== SOCIAL SYSTEM ====================
+
+model Follow {
+  id              String   @id @default(uuid())
+  followerId      String
+  followingId     String
+  
+  createdAt       DateTime @default(now())
+  
+  follower        User     @relation("Followers", fields: [followerId], references: [id], onDelete: Cascade)
+  following       User     @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+  
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+model Block {
+  id              String   @id @default(uuid())
+  blockerId       String
+  blockedId       String
+  
+  createdAt       DateTime @default(now())
+  
+  blocker         User     @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked         User     @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+  @@index([blockedId])
+}
+
+model Bookmark {
+  id              String   @id @default(uuid())
+  userId          String
+  threadId        String
+  
+  createdAt       DateTime @default(now())
+  
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  thread          Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, threadId])
+  @@index([userId])
+}
+
+model WatchedThread {
+  id              String   @id @default(uuid())
+  userId          String
+  threadId        String
+  
+  createdAt       DateTime @default(now())
+  
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  thread          Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, threadId])
+  @@index([userId])
+}
+
+// ==================== BADGE SYSTEM ====================
+
+model Badge {
+  id              String     @id @default(uuid())
+  name            String     @unique
+  description     String?
+  icon            String
+  color           String     @default("#666666")
+  category        String     @default("general")
+  autoAward       Boolean    @default(false)
+  autoAwardRule   String?
+  sortOrder       Int        @default(0)
+  
+  createdAt       DateTime   @default(now())
+  
+  users           UserBadge[]
+}
+
+model UserBadge {
+  id              String   @id @default(uuid())
+  userId          String
+  badgeId         String
+  awardedBy       String?
+  reason          String?
+  
+  createdAt       DateTime @default(now())
+  
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge           Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, badgeId])
+  @@index([userId])
+}
+
+// ==================== MODERATION SYSTEM ====================
+
+model Report {
+  id              String       @id @default(uuid())
+  reporterId      String
+  reportedUserId  String?
+  targetType      ReportTarget
+  targetId        String
+  reason          ReportReason
+  description     String?      @db.Text
+  status          ReportStatus @default(PENDING)
+  adminNote       String?
+  resolvedBy      String?
+  resolvedAt      DateTime?
+  
+  createdAt       DateTime     @default(now())
+  
+  reporter        User         @relation("Reporter", fields: [reporterId], references: [id])
+  reportedUser    User?        @relation("Reported", fields: [reportedUserId], references: [id])
+  thread          Thread?      @relation(fields: [targetId], references: [id])
+  comment         Comment?     @relation(fields: [targetId], references: [id])
+  
+  @@index([reporterId])
+  @@index([status])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}
+
+model ModerationAction {
+  id              String   @id @default(uuid())
+  userId          String
+  moderatorId     String
+  action          String
+  reason          String?
+  note            String?  @db.Text
+  duration        Int?
+  expiresAt       DateTime?
+  isActive        Boolean  @default(true)
+  
+  createdAt       DateTime @default(now())
+  
+  user            User     @relation("ModeratedUser", fields: [userId], references: [id])
+  moderator       User     @relation("Moderator", fields: [moderatorId], references: [id])
+  
+  @@index([userId])
+  @@index([moderatorId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model BadWord {
+  id              String   @id @default(uuid())
+  word            String   @unique
+  replacement     String?
+  language        String   @default("en")
+  severity        Int      @default(1)
+  isRegex         Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  
+  createdAt       DateTime @default(now())
+}
+
+// ==================== AUDIT & ANALYTICS ====================
+
+model AuditLog {
+  id              String   @id @default(uuid())
+  userId          String?
+  action          String
+  targetType      String?
+  targetId        String?
+  details         String?  @db.Text
+  ipAddress       String?
+  userAgent       String?
+  
+  createdAt       DateTime @default(now())
+  
+  user            User?    @relation(fields: [userId], references: [id])
+  
+  @@index([userId])
+  @@index([action])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}
+
+model Analytics {
+  id              String   @id @default(uuid())
+  type            String
+  date            DateTime @db.Date
+  value           Int      @default(0)
+  metadata        String?  @db.Text
+  
+  @@unique([type, date])
+  @@index([type])
+  @@index([date])
+}
+
+// ==================== FILE SYSTEM ====================
+
+model Attachment {
+  id              String   @id @default(uuid())
+  fileName        String
+  originalName    String
+  mimeType        String
+  size            Int
+  path            String
+  url             String
+  threadId        String?
+  commentId       String?
+  messageId       String?
+  uploadedBy      String
+  
+  createdAt       DateTime @default(now())
+  
+  thread          Thread?  @relation(fields: [threadId], references: [id], onDelete: SetNull)
+  comment         Comment? @relation(fields: [commentId], references: [id], onDelete: SetNull)
+  message         DirectMessage? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  
+  @@index([threadId])
+  @@index([commentId])
+  @@index([messageId])
+  @@index([uploadedBy])
+}
+
+// ==================== SITE SETTINGS ====================
+
+model SiteSetting {
+  id              String   @id @default(uuid())
+  key             String   @unique
+  value           String   @db.Text
+  type            String   @default("string")
+  group           String   @default("general")
+  
+  updatedAt       DateTime @updatedAt
+}
+
+model NotificationBar {
+  id              String   @id @default(uuid())
+  text            String   @db.Text
+  backgroundColor String   @default("#1a73e8")
+  textColor       String   @default("#ffffff")
+  buttonText      String?
+  buttonUrl       String?
+  buttonColor     String?
+  isClosable      Boolean  @default(true)
+  isActive        Boolean  @default(true)
+  startsAt        DateTime?
+  endsAt          DateTime?
+  audience        String   @default("all")
+  sortOrder       Int      @default(0)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([isActive])
+  @@index([startsAt, endsAt])
+}
+
+// ==================== ENUMS ====================
+
+enum Role {
+  USER
+  MODERATOR
+  SUPER_MODERATOR
+  ADMIN
+}
+
+enum ThreadType {
+  DISCUSSION
+  QUESTION
+  POLL
+  ANNOUNCEMENT
+}
+
+enum ThreadStatus {
+  OPEN
+  CLOSED
+  LOCKED
+  SOLVED
+  ARCHIVED
+}
+
+enum ReactionType {
+  like
+  love
+  funny
+  helpful
+  sad
+  angry
+}
+
+enum ReportTarget {
+  THREAD
+  COMMENT
+  USER
+  MESSAGE
+}
+
+enum ReportReason {
+  SPAM
+  HARASSMENT
+  INAPPROPRIATE
+  MISINFORMATION
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWING
+  RESOLVED
+  DISMISSED
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
