@@ -2,7 +2,8 @@ module.exports = {
   apps: [
     {
       name: 'nullforum-backend',
-      script: './services/backend/dist/server.js',
+      script: './node_modules/.bin/tsx',
+      args: 'services/backend/src/server.ts',
       cwd: '/www/wwwroot/forum.inst.lk',
       instances: 2,
       exec_mode: 'cluster',
@@ -35,7 +36,8 @@ module.exports = {
     },
     {
       name: 'nullforum-socket',
-      script: './services/backend/dist/server.js',
+      script: './node_modules/.bin/tsx',
+      args: 'services/backend/src/server.ts',
       cwd: '/www/wwwroot/forum.inst.lk',
       instances: 1,
       env: {
