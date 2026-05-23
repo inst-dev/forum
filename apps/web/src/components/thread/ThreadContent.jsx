@@ -4,6 +4,12 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { clientApi } from '@/lib/api';
+import { TimeAgo } from '@/components/ui/TimeAgo';
+import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
+import { FiBookmark, FiEye, FiMessageCircle, FiHeart } from 'react-icons/fi';
+import { AiOutlineLike, AiFillLike, AiOutlineHeart, AiFillHeart } from 'react-icons/ai';
+import { BsEmojiLaughing, BsLightbulb, BsEmojiFrown, BsEmojiAngry } from 'react-icons/bs';
+import { toast } from 'sonner';
 
 export function ThreadContent({ thread }) {
   const { user } = useAuth();
@@ -12,12 +18,18 @@ export function ThreadContent({ thread }) {
 
   const handleBookmark = async () => {
     const res = await clientApi.post(`/threads/${thread.id}/bookmark`);
-    if (res.success) setBookmarked(res.data.bookmarked);
+    if (res.success) {
+      setBookmarked(res.data.bookmarked);
+      toast.success(res.data.bookmarked ? 'Bookmarked' : 'Removed from bookmarks');
+    }
   };
 
   const handleWatch = async () => {
     const res = await clientApi.post(`/threads/${thread.id}/watch`);
-    if (res.success) setWatching(res.data.watching);
+    if (res.success) {
+      setWatching(res.data.watching);
+      toast.success(res.data.watching ? 'Now watching' : 'Stopped watching');
+    }
   };
 
   return (
@@ -35,15 +47,15 @@ export function ThreadContent({ thread }) {
           <div className="nv8y3z">
             <span>by <Link href={`/users/${thread.author?.username}`} style={{ fontWeight: 500, color: 'var(--c-text-primary)' }}>{thread.author?.username}</Link></span>
             <span>&middot;</span>
-            <time>{new Date(thread.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</time>
+            <TimeAgo date={thread.createdAt} />
           </div>
           {user && (
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={handleBookmark} className={`qy2e7f vd2o7p ${bookmarked ? 'rz4g9h' : 'tb8k3l'}`}>
-                {bookmarked ? 'Bookmarked' : 'Bookmark'}
+                <FiBookmark size={14} /> {bookmarked ? 'Bookmarked' : 'Bookmark'}
               </button>
               <button onClick={handleWatch} className={`qy2e7f vd2o7p ${watching ? 'rz4g9h' : 'tb8k3l'}`}>
-                {watching ? 'Watching' : 'Watch'}
+                <FiEye size={14} /> {watching ? 'Watching' : 'Watch'}
               </button>
             </div>
           )}
@@ -52,22 +64,16 @@ export function ThreadContent({ thread }) {
 
       {/* Author Info */}
       <div className="nj9x4y">
-        <img src={thread.author?.avatar || '/default-avatar.svg'} alt="" className="go4k9l iq8o3p" />
+        <img src={thread.author?.avatar || '/default-avatar.svg'} alt="" className="go4k9l iq8o3p" style={{ borderRadius: '50%' }} />
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Link href={`/users/${thread.author?.username}`} style={{ fontWeight: 600 }}>{thread.author?.displayName || thread.author?.username}</Link>
+            {thread.author?.isVerified && <VerifiedBadge />}
             <span className="px2c7d qy4e9f">{thread.author?.memberStatus}</span>
           </div>
           <div style={{ fontSize: '13px', color: 'var(--c-text-muted)' }}>
-            Points: {thread.author?.points} &middot; Reactions: {thread.author?.reactionScore} &middot; Joined: {new Date(thread.author?.createdAt).toLocaleDateString()}
+            Points: {thread.author?.points} &middot; Reactions: {thread.author?.reactionScore} &middot; Joined: <TimeAgo date={thread.author?.createdAt} />
           </div>
-          {thread.author?.badges?.length > 0 && (
-            <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
-              {thread.author.badges.map(b => (
-                <span key={b.badge.id} className="px2c7d" style={{ background: b.badge.color + '20', color: b.badge.color }}>{b.badge.name}</span>
-              ))}
-            </div>
-          )}
         </div>
       </div>
 
@@ -80,19 +86,12 @@ export function ThreadContent({ thread }) {
       {/* Reactions & Actions */}
       <div style={{ padding: '12px 24px', borderTop: '1px solid var(--c-border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <ReactionBar targetType="THREAD" targetId={thread.id} />
-        <div style={{ display: 'flex', gap: '8px', fontSize: '13px', color: 'var(--c-text-muted)' }}>
-          <span>{thread.viewCount} views</span>
-          <span>&middot;</span>
-          <span>{thread.commentCount} replies</span>
+        <div style={{ display: 'flex', gap: '12px', fontSize: '13px', color: 'var(--c-text-muted)' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><FiEye size={14} /> {thread.viewCount}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><FiMessageCircle size={14} /> {thread.commentCount}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><FiHeart size={14} /> {thread.reactionCount}</span>
         </div>
       </div>
-
-      {/* Signature */}
-      {thread.author?.signature && (
-        <div style={{ padding: '12px 24px', borderTop: '1px solid var(--c-border-light)', fontSize: '13px', color: 'var(--c-text-muted)', fontStyle: 'italic' }}>
-          {thread.author.signature}
-        </div>
-      )}
     </div>
   );
 }
@@ -100,29 +99,40 @@ export function ThreadContent({ thread }) {
 function ReactionBar({ targetType, targetId }) {
   const { user } = useAuth();
   const [reacted, setReacted] = useState(null);
+  const [counts, setCounts] = useState({});
 
   const reactions = [
-    { type: 'like', emoji: '👍' },
-    { type: 'love', emoji: '❤️' },
-    { type: 'funny', emoji: '😂' },
-    { type: 'helpful', emoji: '💡' },
-    { type: 'sad', emoji: '😢' },
-    { type: 'angry', emoji: '😡' },
+    { type: 'like', icon: <AiOutlineLike size={16} />, activeIcon: <AiFillLike size={16} />, label: 'Like' },
+    { type: 'love', icon: <AiOutlineHeart size={16} />, activeIcon: <AiFillHeart size={16} />, label: 'Love' },
+    { type: 'funny', icon: <BsEmojiLaughing size={16} />, activeIcon: <BsEmojiLaughing size={16} />, label: 'Funny' },
+    { type: 'helpful', icon: <BsLightbulb size={16} />, activeIcon: <BsLightbulb size={16} />, label: 'Helpful' },
+    { type: 'sad', icon: <BsEmojiFrown size={16} />, activeIcon: <BsEmojiFrown size={16} />, label: 'Sad' },
+    { type: 'angry', icon: <BsEmojiAngry size={16} />, activeIcon: <BsEmojiAngry size={16} />, label: 'Angry' },
   ];
 
   const handleReact = async (type) => {
-    if (!user) return;
+    if (!user) {
+      toast.error('Please log in to react');
+      return;
+    }
     const res = await clientApi.post('/reactions', { targetType, targetId, reactionType: type });
     if (res.success) {
-      setReacted(res.data.action === 'added' ? type : null);
+      if (res.data.action === 'added') {
+        setReacted(type);
+        setCounts(prev => ({ ...prev, [type]: (prev[type] || 0) + 1 }));
+      } else {
+        setReacted(null);
+        setCounts(prev => ({ ...prev, [type]: Math.max(0, (prev[type] || 0) - 1) }));
+      }
     }
   };
 
   return (
     <div className="nv0y5z">
       {reactions.map(r => (
-        <button key={r.type} onClick={() => handleReact(r.type)} className={`ow2a7b ${reacted === r.type ? 'px4c9d' : ''}`} title={r.type}>
-          {r.emoji}
+        <button key={r.type} onClick={() => handleReact(r.type)} className={`ow2a7b ${reacted === r.type ? 'px4c9d' : ''}`} title={r.label}>
+          {reacted === r.type ? r.activeIcon : r.icon}
+          {counts[r.type] > 0 && <span>{counts[r.type]}</span>}
         </button>
       ))}
     </div>
@@ -136,7 +146,12 @@ function PollWidget({ poll, threadId, user }) {
   const handleVote = async () => {
     if (!user || selected.length === 0) return;
     const res = await clientApi.post(`/threads/${threadId}/poll/vote`, { optionIds: selected });
-    if (res.success) setVoted(true);
+    if (res.success) {
+      setVoted(true);
+      toast.success('Vote recorded');
+    } else {
+      toast.error(res.error?.message || 'Failed to vote');
+    }
   };
 
   const totalVotes = poll.totalVotes || 1;
@@ -156,13 +171,10 @@ function PollWidget({ poll, threadId, user }) {
         ))}
       </div>
       {!voted && user && (
-        <button onClick={handleVote} className="qy2e7f rz4g9h vd2o7p" style={{ marginTop: '8px' }}>
-          Vote
-        </button>
+        <button onClick={handleVote} className="qy2e7f rz4g9h vd2o7p" style={{ marginTop: '8px' }}>Vote</button>
       )}
       <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--c-text-muted)' }}>
-        {poll.totalVotes} votes
-        {poll.expiresAt && ` · Expires ${new Date(poll.expiresAt).toLocaleDateString()}`}
+        {poll.totalVotes} votes {poll.expiresAt && ` · Expires ${new Date(poll.expiresAt).toLocaleDateString()}`}
       </div>
     </div>
   );

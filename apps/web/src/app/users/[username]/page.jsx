@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { notFound } from 'next/navigation';
+import { TimeAgo } from '@/components/ui/TimeAgo';
+import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 
 export async function generateMetadata({ params }) {
   const res = await api.get(`/users/${params.username}`);
@@ -19,13 +21,12 @@ export default async function ProfilePage({ params }) {
       <div style={{ height: '200px', background: profile.banner ? `url(${profile.banner}) center/cover` : 'linear-gradient(135deg, var(--c-accent), var(--c-accent-hover))', borderRadius: 'var(--c-radius-lg) var(--c-radius-lg) 0 0' }} />
 
       <div className="xf6s1t" style={{ borderTopLeftRadius: 0, borderTopRightRadius: 0, marginTop: '-1px' }}>
-        {/* Avatar + Name */}
         <div className="fb3h8i">
-          <img src={profile.avatar || '/default-avatar.svg'} alt={profile.username} className="go4k9l jr0q5r gc5j0k" />
+          <img src={profile.avatar || '/default-avatar.svg'} alt={profile.username} className="go4k9l jr0q5r gc5j0k" style={{ borderRadius: '50%' }} />
           <div style={{ paddingBottom: '8px' }}>
             <div className="ie9n4o">
               <h1 style={{ fontSize: '22px', fontWeight: 700 }}>{profile.displayName || profile.username}</h1>
-              {profile.isVerified && <span title="Verified" style={{ color: 'var(--c-accent)' }}>✓</span>}
+              {profile.isVerified && <VerifiedBadge size={20} />}
               <span className="px2c7d qy4e9f">{profile.role}</span>
             </div>
             <p style={{ color: 'var(--c-text-muted)', fontSize: '14px' }}>@{profile.username} &middot; {profile.memberStatus}</p>
@@ -33,11 +34,9 @@ export default async function ProfilePage({ params }) {
         </div>
 
         <div className="hd7l2m">
-          {/* Bio */}
           {profile.bio && <p style={{ marginBottom: '12px', fontSize: '14px' }}>{profile.bio}</p>}
           {profile.statusMessage && <p style={{ fontSize: '13px', color: 'var(--c-text-muted)', marginBottom: '12px' }}>💬 {profile.statusMessage}</p>}
 
-          {/* Badges */}
           {profile.badges?.length > 0 && (
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
               {profile.badges.map(b => (
@@ -46,7 +45,6 @@ export default async function ProfilePage({ params }) {
             </div>
           )}
 
-          {/* Stats */}
           <div className="jf1p6q">
             <div><strong>{profile.points}</strong><span>Points</span></div>
             <div><strong>{profile.reactionScore}</strong><span>Reactions</span></div>
@@ -56,15 +54,13 @@ export default async function ProfilePage({ params }) {
             {profile.followingCount !== undefined && <div><strong>{profile.followingCount}</strong><span>Following</span></div>}
           </div>
 
-          {/* Info */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', fontSize: '13px', color: 'var(--c-text-secondary)', marginTop: '12px' }}>
             {profile.location && <span>📍 {profile.location}</span>}
-            <span>📅 Joined {new Date(profile.joinedAt).toLocaleDateString()}</span>
-            {profile.lastSeen && <span>🕐 Last seen {new Date(profile.lastSeen).toLocaleDateString()}</span>}
-            {profile.isOnline && <span style={{ color: 'var(--c-success)' }}>● Online</span>}
+            <span>📅 Joined <TimeAgo date={profile.joinedAt} /></span>
+            {profile.lastSeen && <span>🕐 Active <TimeAgo date={profile.lastSeen} /></span>}
+            {profile.isOnline && <span style={{ color: 'var(--c-success)' }}>● Online now</span>}
           </div>
 
-          {/* Social Links */}
           {profile.socialLinks && Object.values(profile.socialLinks).some(v => v) && (
             <div style={{ display: 'flex', gap: '12px', marginTop: '12px', fontSize: '13px' }}>
               {profile.socialLinks.website && <a href={profile.socialLinks.website} target="_blank" rel="noopener noreferrer">🌐 Website</a>}

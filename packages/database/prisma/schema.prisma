@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextIndex"]
 }
 
 datasource db {
@@ -155,8 +156,8 @@ model OAuthAccount {
 model Session {
   id              String   @id @default(uuid())
   userId          String
-  token           String   @unique
-  refreshToken    String   @unique
+  token           String   @unique @db.VarChar(512)
+  refreshToken    String   @unique @db.VarChar(512)
   deviceInfo      String?
   ipAddress       String?
   userAgent       String?  @db.Text
@@ -169,8 +170,6 @@ model Session {
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@index([userId])
-  @@index([token])
-  @@index([refreshToken])
   @@index([expiresAt])
 }
 
@@ -678,8 +677,8 @@ model Report {
   
   reporter        User         @relation("Reporter", fields: [reporterId], references: [id])
   reportedUser    User?        @relation("Reported", fields: [reportedUserId], references: [id])
-  thread          Thread?      @relation(fields: [targetId], references: [id])
-  comment         Comment?     @relation(fields: [targetId], references: [id])
+  thread          Thread?      @relation(fields: [targetId], references: [id], map: "Report_thread_fkey")
+  comment         Comment?     @relation(fields: [targetId], references: [id], map: "Report_comment_fkey")
   
   @@index([reporterId])
   @@index([status])

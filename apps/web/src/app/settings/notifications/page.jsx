@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { clientApi } from '@/lib/api';
+import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
+import { toast } from 'sonner';
 
 export default function NotificationSettingsPage() {
   const { user } = useAuth();
@@ -11,7 +13,6 @@ export default function NotificationSettingsPage() {
     emailMentions: true, emailReplies: true, emailMessages: true, emailFollows: true,
     emailDigest: 'daily', pushEnabled: true, pushMentions: true, pushReplies: true, pushMessages: true,
   });
-  const [message, setMessage] = useState('');
 
   useEffect(() => {
     async function load() {
@@ -23,7 +24,8 @@ export default function NotificationSettingsPage() {
 
   const handleSave = async () => {
     const res = await clientApi.put('/users/notification-prefs', prefs);
-    setMessage(res.success ? 'Notification preferences saved!' : 'Failed to save');
+    if (res.success) toast.success('Notification preferences saved');
+    else toast.error('Failed to save');
   };
 
   if (!user) return <div className="uc4m9n"><p>Please log in.</p></div>;
@@ -41,15 +43,12 @@ export default function NotificationSettingsPage() {
       </nav>
       <div className="ws7p2q">
         <h1 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '20px' }}>Notification Preferences</h1>
-        {message && <div style={{ padding: '8px 12px', marginBottom: '16px', borderRadius: 'var(--c-radius-sm)', background: 'var(--c-success)', color: '#fff', fontSize: '14px' }}>{message}</div>}
         <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>Email Notifications</h3>
         <div className="ai2y7z" style={{ marginBottom: '24px' }}>
-          {['emailMentions', 'emailReplies', 'emailMessages', 'emailFollows'].map(key => (
-            <label key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
-              <span style={{ fontSize: '14px' }}>{key.replace('email', 'Email ')}</span>
-              <input type="checkbox" checked={prefs[key]} onChange={e => setPrefs({ ...prefs, [key]: e.target.checked })} style={{ width: '18px', height: '18px' }} />
-            </label>
-          ))}
+          <ToggleSwitch label="Mentions" checked={prefs.emailMentions} onChange={v => setPrefs({ ...prefs, emailMentions: v })} />
+          <ToggleSwitch label="Replies" checked={prefs.emailReplies} onChange={v => setPrefs({ ...prefs, emailReplies: v })} />
+          <ToggleSwitch label="Messages" checked={prefs.emailMessages} onChange={v => setPrefs({ ...prefs, emailMessages: v })} />
+          <ToggleSwitch label="New Followers" checked={prefs.emailFollows} onChange={v => setPrefs({ ...prefs, emailFollows: v })} />
           <div className="bj4a9b">
             <label className="ck6c1d">Email Digest</label>
             <select className="dl8e3f" value={prefs.emailDigest} onChange={e => setPrefs({ ...prefs, emailDigest: e.target.value })}>
@@ -61,12 +60,10 @@ export default function NotificationSettingsPage() {
         </div>
         <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>Push Notifications</h3>
         <div className="ai2y7z">
-          {['pushEnabled', 'pushMentions', 'pushReplies', 'pushMessages'].map(key => (
-            <label key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
-              <span style={{ fontSize: '14px' }}>{key.replace('push', 'Push ')}</span>
-              <input type="checkbox" checked={prefs[key]} onChange={e => setPrefs({ ...prefs, [key]: e.target.checked })} style={{ width: '18px', height: '18px' }} />
-            </label>
-          ))}
+          <ToggleSwitch label="Enable Push" checked={prefs.pushEnabled} onChange={v => setPrefs({ ...prefs, pushEnabled: v })} />
+          <ToggleSwitch label="Mentions" checked={prefs.pushMentions} onChange={v => setPrefs({ ...prefs, pushMentions: v })} />
+          <ToggleSwitch label="Replies" checked={prefs.pushReplies} onChange={v => setPrefs({ ...prefs, pushReplies: v })} />
+          <ToggleSwitch label="Messages" checked={prefs.pushMessages} onChange={v => setPrefs({ ...prefs, pushMessages: v })} />
         </div>
         <button onClick={handleSave} className="qy2e7f rz4g9h" style={{ marginTop: '20px' }}>Save Preferences</button>
       </div>

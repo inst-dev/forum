@@ -4,6 +4,9 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { clientApi } from '@/lib/api';
+import { TimeAgo } from '@/components/ui/TimeAgo';
+import { FiMessageCircle, FiCornerDownRight } from 'react-icons/fi';
+import { toast } from 'sonner';
 
 export function CommentList({ comments, meta, threadId, slug, page }) {
   const { user } = useAuth();
@@ -20,21 +23,22 @@ export function CommentList({ comments, meta, threadId, slug, page }) {
     if (res.success) {
       setLocalComments(prev => [...prev, res.data]);
       setContent('');
+      toast.success('Reply posted');
+    } else {
+      toast.error(res.error?.message || 'Failed to post reply');
     }
     setSubmitting(false);
   };
 
   return (
     <div>
-      {/* Comment Count */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
         <h2 style={{ fontSize: '16px', fontWeight: 600 }}>Replies ({meta.total || localComments.length})</h2>
       </div>
 
-      {/* Comments */}
       <div className="kg3r8s" style={{ marginBottom: '24px' }}>
         {localComments.map(comment => (
-          <CommentItem key={comment.id} comment={comment} threadId={threadId} />
+          <CommentItem key={comment.id} comment={comment} threadId={threadId} depth={0} />
         ))}
         {localComments.length === 0 && (
           <div className="uc4m9n">
@@ -76,7 +80,7 @@ export function CommentList({ comments, meta, threadId, slug, page }) {
   );
 }
 
-function CommentItem({ comment, threadId }) {
+function CommentItem({ comment, threadId, depth }) {
   const { user } = useAuth();
   const [showReply, setShowReply] = useState(false);
   const [replyContent, setReplyContent] = useState('');
@@ -90,13 +94,16 @@ function CommentItem({ comment, threadId }) {
       setReplies(prev => [...prev, res.data]);
       setReplyContent('');
       setShowReply(false);
+      toast.success('Reply posted');
+    } else {
+      toast.error(res.error?.message || 'Failed');
     }
   };
 
   return (
     <div>
       <div className="pl3b8c">
-        <img src={comment.author?.avatar || '/default-avatar.svg'} alt="" className="go4k9l hp6m1n" />
+        <img src={comment.author?.avatar || '/default-avatar.svg'} alt="" className="go4k9l hp6m1n" style={{ borderRadius: '50%' }} />
         <div className="qm5d0e">
           <div className="rn7f2g">
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -104,16 +111,17 @@ function CommentItem({ comment, threadId }) {
               <span className="px2c7d qy4e9f" style={{ fontSize: '10px' }}>{comment.author?.memberStatus || comment.author?.role}</span>
               {comment.isEdited && <span style={{ fontSize: '11px', color: 'var(--c-text-muted)' }}>(edited)</span>}
             </div>
-            <time style={{ fontSize: '12px', color: 'var(--c-text-muted)' }}>{new Date(comment.createdAt).toLocaleDateString()}</time>
+            <TimeAgo date={comment.createdAt} className="nv8y3z" />
           </div>
           <div style={{ fontSize: '14px', lineHeight: 1.7 }}>{comment.content}</div>
           <div style={{ display: 'flex', gap: '12px', marginTop: '8px', fontSize: '13px' }}>
             {user && (
-              <button onClick={() => setShowReply(!showReply)} style={{ color: 'var(--c-accent)', fontWeight: 500 }}>Reply</button>
+              <button onClick={() => setShowReply(!showReply)} style={{ color: 'var(--c-accent)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <FiCornerDownRight size={12} /> Reply
+              </button>
             )}
           </div>
 
-          {/* Reply form */}
           {showReply && (
             <form onSubmit={handleReply} style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
               <input type="text" className="dl8e3f" style={{ flex: 1 }} value={replyContent} onChange={e => setReplyContent(e.target.value)} placeholder={`Reply to ${comment.author?.username}...`} />
@@ -123,22 +131,11 @@ function CommentItem({ comment, threadId }) {
         </div>
       </div>
 
-      {/* Nested replies */}
+      {/* Unlimited nested replies */}
       {replies.length > 0 && (
         <div className="so9h4i">
           {replies.map(reply => (
-            <div key={reply.id} className="pl3b8c" style={{ paddingLeft: '12px' }}>
-              <img src={reply.author?.avatar || '/default-avatar.svg'} alt="" className="go4k9l hp6m1n" />
-              <div className="qm5d0e">
-                <div className="rn7f2g">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Link href={`/users/${reply.author?.username}`} style={{ fontWeight: 600, fontSize: '13px' }}>{reply.author?.username}</Link>
-                  </div>
-                  <time style={{ fontSize: '11px', color: 'var(--c-text-muted)' }}>{new Date(reply.createdAt).toLocaleDateString()}</time>
-                </div>
-                <div style={{ fontSize: '14px' }}>{reply.content}</div>
-              </div>
-            </div>
+            <CommentItem key={reply.id} comment={reply} threadId={threadId} depth={depth + 1} />
           ))}
         </div>
       )}
