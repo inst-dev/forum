@@ -66,10 +66,16 @@ export function ThreadContent({ thread }) {
       <div className="nj9x4y">
         <img src={thread.author?.avatar || '/default-avatar.svg'} alt="" className="go4k9l iq8o3p" style={{ borderRadius: '50%' }} />
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
             <Link href={`/users/${thread.author?.username}`} style={{ fontWeight: 600 }}>{thread.author?.displayName || thread.author?.username}</Link>
             {thread.author?.isVerified && <VerifiedBadge />}
             <span className="px2c7d qy4e9f">{thread.author?.memberStatus}</span>
+            {thread.author?.badges?.length > 0 && thread.author.badges.map(ub => (
+              <span key={ub.badge.id} className="px2c7d" style={{ background: (ub.badge.color || '#666') + '20', color: ub.badge.color || '#666', fontSize: '10px' }} title={ub.badge.description || ub.badge.name}>
+                {ub.badge.icon && <span style={{ marginRight: '2px' }}>{ub.badge.icon}</span>}
+                {ub.badge.name}
+              </span>
+            ))}
           </div>
           <div style={{ fontSize: '13px', color: 'var(--c-text-muted)' }}>
             Points: {thread.author?.points} &middot; Reactions: {thread.author?.reactionScore} &middot; Joined: <TimeAgo date={thread.author?.createdAt} />

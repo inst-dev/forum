@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import Image from 'next/image';
 import { BiImageAdd } from 'react-icons/bi';
-import { clientApi } from '@/lib/api';
+import { toast } from 'sonner';
 
 export function ImageUpload({ currentImage, onUpload, type = 'avatar', label = 'Upload Image' }) {
   const [preview, setPreview] = useState(currentImage || null);
@@ -13,6 +12,12 @@ export function ImageUpload({ currentImage, onUpload, type = 'avatar', label = '
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File too large. Maximum size is 10MB.');
+      return;
+    }
 
     // Preview
     const reader = new FileReader();
@@ -30,12 +35,27 @@ export function ImageUpload({ currentImage, onUpload, type = 'avatar', label = '
         body: formData,
         credentials: 'include',
       });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        toast.error(errData?.error?.message || `Upload failed (${res.status})`);
+        setPreview(currentImage || null);
+        setUploading(false);
+        return;
+      }
+
       const data = await res.json();
-      if (data.success) {
+      if (data.success && data.data?.url) {
         onUpload?.(data.data.url);
+        toast.success('Image uploaded successfully');
+      } else {
+        toast.error('Upload failed: no URL returned');
+        setPreview(currentImage || null);
       }
     } catch (err) {
       console.error('Upload failed:', err);
+      toast.error('Upload failed. Please try again.');
+      setPreview(currentImage || null);
     }
     setUploading(false);
   };
@@ -45,7 +65,7 @@ export function ImageUpload({ currentImage, onUpload, type = 'avatar', label = '
   return (
     <div className="n8k2v8">
       <span className="n8k2v2">{label}</span>
-      <div className="n8k2v9" onClick={() => fileRef.current?.click()}>
+      <div className="n8k2v9" onClick={() => !uploading && fileRef.current?.click()} style={{ opacity: uploading ? 0.6 : 1, pointerEvents: uploading ? 'none' : undefined }}>
         {preview ? (
           <img
             src={preview}
@@ -66,6 +86,7 @@ export function ImageUpload({ currentImage, onUpload, type = 'avatar', label = '
           style={{ display: 'none' }}
         />
       </div>
+      {uploading && <span style={{ fontSize: '12px', color: 'var(--c-text-muted)' }}>Uploading...</span>}
     </div>
   );
 }

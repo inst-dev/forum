@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { TimeAgo } from '@/components/ui/TimeAgo';
+import { SuggestedThreads } from '@/components/thread/SuggestedThreads';
 
 export const metadata = {
   title: 'Home',
@@ -36,7 +37,7 @@ export default async function HomePage() {
           </div>
           <div>
             {threads.map((thread) => (
-              <Link href={`/${thread.slug}/${thread.id}`} key={thread.id} className="ks2s7t">
+              <Link href={`/${thread.slug}/${thread.id.substring(0, 8)}`} key={thread.id} className="ks2s7t">
                 <img src={thread.author?.avatar || '/default-avatar.svg'} alt="" className="go4k9l hp6m1n" style={{ borderRadius: '50%' }} />
                 <div className="lt4u9v">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -50,6 +51,14 @@ export default async function HomePage() {
                     <span>{thread.forum?.name}</span>
                     <span>&middot;</span>
                     <TimeAgo date={thread.lastCommentAt || thread.createdAt} />
+                    {thread.tags?.length > 0 && (
+                      <>
+                        <span>&middot;</span>
+                        {thread.tags.slice(0, 3).map(t => (
+                          <span key={t.tag.id} className="tg5g2a" style={{ background: 'var(--c-accent-light)', color: 'var(--c-accent)', borderColor: 'var(--c-accent)' }}>{t.tag.name}</span>
+                        ))}
+                      </>
+                    )}
                   </div>
                 </div>
                 <div className="ow0a5b">
@@ -65,6 +74,9 @@ export default async function HomePage() {
             )}
           </div>
         </section>
+
+        {/* Suggested For You (X-algorithm powered) */}
+        <SuggestedThreads />
 
         {/* Categories */}
         {categories.map((category) => (

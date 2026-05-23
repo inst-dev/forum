@@ -23,7 +23,7 @@ export default function AdminDashboard() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <h1 style={{ fontSize: '24px', fontWeight: 700 }}>Admin Dashboard</h1>
-        <nav style={{ display: 'flex', gap: '8px' }}>
+        <nav style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <Link href="/admin/users" className="qy2e7f tb8k3l vd2o7p">Users</Link>
           <Link href="/admin/reports" className="qy2e7f tb8k3l vd2o7p">Reports</Link>
           <Link href="/admin/forums" className="qy2e7f tb8k3l vd2o7p">Forums</Link>
@@ -33,6 +33,7 @@ export default function AdminDashboard() {
           <Link href="/admin/moderation" className="qy2e7f tb8k3l vd2o7p">Moderation</Link>
           <Link href="/admin/bad-words" className="qy2e7f tb8k3l vd2o7p">Bad Words</Link>
           <Link href="/admin/analytics" className="qy2e7f tb8k3l vd2o7p">Analytics</Link>
+          <Link href="/admin/username-requests" className="qy2e7f tb8k3l vd2o7p">Username Requests</Link>
         </nav>
       </div>
 

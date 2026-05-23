@@ -7,32 +7,44 @@ import { filterContent, calculateSpamScore } from '../lib/profanity';
 import { cache } from '../lib/redis';
 
 export async function threadRoutes(app: FastifyInstance) {
-  // Get thread by slug and id
+  // Get thread by slug and id (supports full UUID or 8-char short ID)
   app.get('/:slug/:threadId', async (request: FastifyRequest, reply: FastifyReply) => {
     const { threadId } = request.params as { slug: string; threadId: string };
 
-    const thread = await prisma.thread.findUnique({
-      where: { id: threadId },
-      include: {
-        author: {
-          select: {
-            id: true, username: true, displayName: true, avatar: true,
-            memberStatus: true, role: true, points: true, reactionScore: true,
-            signature: true, createdAt: true,
-            badges: { include: { badge: true }, take: 5 },
-          },
+    const threadInclude = {
+      author: {
+        select: {
+          id: true, username: true, displayName: true, avatar: true,
+          memberStatus: true, role: true, points: true, reactionScore: true,
+          signature: true, createdAt: true,
+          badges: { include: { badge: true }, take: 5 },
         },
-        forum: { select: { id: true, name: true, slug: true } },
-        prefix: { select: { id: true, name: true, color: true } },
-        tags: { include: { tag: { select: { id: true, name: true, slug: true } } } },
-        poll: {
-          include: {
-            options: { orderBy: { sortOrder: 'asc' } },
-          },
-        },
-        attachments: { select: { id: true, fileName: true, originalName: true, mimeType: true, size: true, url: true } },
       },
-    });
+      forum: { select: { id: true, name: true, slug: true } },
+      prefix: { select: { id: true, name: true, color: true } },
+      tags: { include: { tag: { select: { id: true, name: true, slug: true } } } },
+      poll: {
+        include: {
+          options: { orderBy: { sortOrder: 'asc' } },
+        },
+      },
+      attachments: { select: { id: true, fileName: true, originalName: true, mimeType: true, size: true, url: true } },
+    };
+
+    let thread;
+    // If threadId is a full UUID (36 chars), look up directly
+    if (threadId.length === 36) {
+      thread = await prisma.thread.findUnique({
+        where: { id: threadId },
+        include: threadInclude,
+      });
+    } else {
+      // Short ID: find thread where UUID starts with the short ID prefix
+      thread = await prisma.thread.findFirst({
+        where: { id: { startsWith: threadId } },
+        include: threadInclude,
+      });
+    }
 
     if (!thread || thread.deletedAt) {
       return reply.status(404).send({
@@ -54,7 +66,7 @@ export async function threadRoutes(app: FastifyInstance) {
 
     // Increment view count
     await prisma.thread.update({
-      where: { id: threadId },
+      where: { id: thread.id },
       data: { viewCount: { increment: 1 } },
     });
 
@@ -430,6 +442,7 @@ export async function threadRoutes(app: FastifyInstance) {
           author: { select: { id: true, username: true, avatar: true, memberStatus: true } },
           forum: { select: { id: true, name: true, slug: true } },
           prefix: { select: { id: true, name: true, color: true } },
+          tags: { include: { tag: { select: { id: true, name: true, slug: true } } } },
         },
         take: limitNum,
         skip: (pageNum - 1) * limitNum,
@@ -443,6 +456,135 @@ export async function threadRoutes(app: FastifyInstance) {
       data: threads,
       meta: { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum), hasNext: pageNum * limitNum < total, hasPrev: pageNum > 1 },
     });
+  });
+
+  // Suggested threads (X-algorithm: recommend based on user's most liked posts)
+  app.get('/suggested', { preHandler: [authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const user = (request as any).user as JWTPayload;
+    const { limit = '10' } = request.query as { limit?: string };
+    const limitNum = Math.min(parseInt(limit), 30);
+
+    // Get user's recent reactions to find engagement patterns
+    const userReactions = await prisma.reaction.findMany({
+      where: { userId: user.userId, threadId: { not: null } },
+      select: { threadId: true, type: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+
+    if (userReactions.length === 0) {
+      // No engagement history — return popular threads
+      const popular = await prisma.thread.findMany({
+        where: { deletedAt: null, status: { not: 'ARCHIVED' } },
+        select: {
+          id: true, title: true, slug: true, type: true, viewCount: true,
+          commentCount: true, reactionCount: true, createdAt: true,
+          author: { select: { id: true, username: true, avatar: true, memberStatus: true } },
+          forum: { select: { id: true, name: true, slug: true } },
+          tags: { include: { tag: { select: { id: true, name: true, slug: true } } } },
+        },
+        orderBy: { reactionCount: 'desc' },
+        take: limitNum,
+      });
+      return reply.send({ success: true, data: popular, meta: { algorithm: 'popular_fallback' } });
+    }
+
+    // Get details of threads user reacted to (forums, tags, authors)
+    const reactedThreadIds = userReactions.map(r => r.threadId).filter(Boolean) as string[];
+    const reactedThreads = await prisma.thread.findMany({
+      where: { id: { in: reactedThreadIds } },
+      select: { forumId: true, authorId: true, tags: { select: { tagId: true } } },
+    });
+
+    // Calculate engagement weights: forums, authors, tags
+    const forumScores: Record<string, number> = {};
+    const authorScores: Record<string, number> = {};
+    const tagScores: Record<string, number> = {};
+
+    // Weight by reaction type (like X's weighted scorer)
+    const reactionWeights: Record<string, number> = {
+      like: 1.0, love: 1.5, helpful: 2.0, funny: 0.8, sad: 0.3, angry: -0.5,
+    };
+
+    reactedThreads.forEach((thread, idx) => {
+      const reaction = userReactions[idx];
+      const weight = reactionWeights[reaction?.type || 'like'] || 1.0;
+      // Recency boost (more recent = higher weight)
+      const recencyBoost = 1.0 + (50 - idx) / 50;
+      const score = weight * recencyBoost;
+
+      forumScores[thread.forumId] = (forumScores[thread.forumId] || 0) + score;
+      authorScores[thread.authorId] = (authorScores[thread.authorId] || 0) + score;
+      thread.tags.forEach(t => {
+        tagScores[t.tagId] = (tagScores[t.tagId] || 0) + score;
+      });
+    });
+
+    // Get top forums, authors, tags
+    const topForums = Object.entries(forumScores).sort((a, b) => b[1] - a[1]).slice(0, 5).map(e => e[0]);
+    const topAuthors = Object.entries(authorScores).sort((a, b) => b[1] - a[1]).slice(0, 10).map(e => e[0]);
+    const topTags = Object.entries(tagScores).sort((a, b) => b[1] - a[1]).slice(0, 10).map(e => e[0]);
+
+    // Fetch candidate threads (not already reacted to, not by user)
+    const candidates = await prisma.thread.findMany({
+      where: {
+        deletedAt: null,
+        status: { not: 'ARCHIVED' },
+        id: { notIn: reactedThreadIds },
+        authorId: { not: user.userId },
+        OR: [
+          { forumId: { in: topForums } },
+          { authorId: { in: topAuthors } },
+          { tags: { some: { tagId: { in: topTags } } } },
+        ],
+      },
+      select: {
+        id: true, title: true, slug: true, type: true, viewCount: true,
+        commentCount: true, reactionCount: true, createdAt: true,
+        forumId: true, authorId: true,
+        author: { select: { id: true, username: true, avatar: true, memberStatus: true } },
+        forum: { select: { id: true, name: true, slug: true } },
+        tags: { include: { tag: { select: { id: true, name: true, slug: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    // Score each candidate (like Phoenix's weighted scorer)
+    const scoredCandidates = candidates.map(thread => {
+      let score = 0;
+      // Forum affinity
+      score += (forumScores[thread.forumId] || 0) * 2.0;
+      // Author affinity
+      score += (authorScores[thread.authorId] || 0) * 1.5;
+      // Tag affinity
+      thread.tags.forEach(t => {
+        score += (tagScores[t.tagId] || 0) * 1.0;
+      });
+      // Engagement signal boost
+      score += Math.log1p(thread.reactionCount) * 0.5;
+      score += Math.log1p(thread.commentCount) * 0.3;
+      // Recency boost (posts from last 7 days get boost)
+      const ageHours = (Date.now() - new Date(thread.createdAt).getTime()) / (1000 * 3600);
+      if (ageHours < 168) score *= 1.0 + (168 - ageHours) / 168;
+
+      return { ...thread, _score: score };
+    });
+
+    // Sort by score, apply author diversity (no more than 2 from same author)
+    scoredCandidates.sort((a, b) => b._score - a._score);
+    const authorCount: Record<string, number> = {};
+    const diversified = scoredCandidates.filter(thread => {
+      const count = authorCount[thread.authorId] || 0;
+      if (count >= 2) return false;
+      authorCount[thread.authorId] = count + 1;
+      return true;
+    }).slice(0, limitNum);
+
+    // Clean up internal score from response
+    const result = diversified.map(({ _score, forumId: _fid, authorId: _aid, ...rest }) => rest);
+
+    return reply.send({ success: true, data: result, meta: { algorithm: 'engagement_weighted' } });
   });
 
   // Save/update draft

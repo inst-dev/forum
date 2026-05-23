@@ -28,6 +28,17 @@ export default async function ThreadPage({ params, searchParams }) {
   const comments = commentsRes?.data || [];
   const commentsMeta = commentsRes?.meta || {};
 
+  // Re-fetch comments with full thread ID if we got back a thread
+  let finalComments = comments;
+  let finalCommentsMeta = commentsMeta;
+  if (thread && thread.id && thread.id !== params.threadId) {
+    const fullCommentsRes = await api.get(`/comments/thread/${thread.id}?page=${page}`);
+    if (fullCommentsRes?.success) {
+      finalComments = fullCommentsRes.data || [];
+      finalCommentsMeta = fullCommentsRes.meta || {};
+    }
+  }
+
   return (
     <div className="zt6v2j">
       <div>
@@ -43,7 +54,7 @@ export default async function ThreadPage({ params, searchParams }) {
         </nav>
 
         <ThreadContent thread={thread} />
-        <CommentList comments={comments} meta={commentsMeta} threadId={params.threadId} slug={params.slug} page={page} />
+        <CommentList comments={finalComments} meta={finalCommentsMeta} threadId={thread.id} slug={params.slug} page={page} />
       </div>
 
       {/* Sidebar */}
