@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { TimeAgo } from '@/components/ui/TimeAgo';
 import { buildThreadUrl } from '@/lib/thread-url';
+import { SuggestedThreads } from '@/components/thread/SuggestedThreads';
 
 export const metadata = {
   title: 'Home',
@@ -66,6 +67,9 @@ export default async function HomePage() {
             )}
           </div>
         </section>
+
+        {/* Suggested For You (X-algorithm powered) */}
+        <SuggestedThreads />
 
         {/* Categories */}
         {categories.map((category) => (

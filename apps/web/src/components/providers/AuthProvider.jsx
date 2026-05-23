@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { clientApi } from '@/lib/api';
 
 const AuthContext = createContext({
@@ -15,6 +16,8 @@ const AuthContext = createContext({
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const pathname = usePathname();
+  const router = useRouter();
 
   const fetchUser = useCallback(async () => {
     try {
@@ -34,6 +37,13 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     fetchUser();
   }, [fetchUser]);
+
+  // Redirect banned users to /banned page
+  useEffect(() => {
+    if (!loading && user?.isBanned && pathname !== '/banned') {
+      router.replace('/banned');
+    }
+  }, [user, loading, pathname, router]);
 
   const login = async (email, password) => {
     const res = await clientApi.post('/auth/login', { email, password });

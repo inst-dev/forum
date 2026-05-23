@@ -15,6 +15,7 @@ const adminNav = [
   { href: '/admin/moderation', label: 'Moderation Logs', icon: FiShield },
   { href: '/admin/bad-words', label: 'Bad Words', icon: FiAlertCircle },
   { href: '/admin/analytics', label: 'Analytics', icon: FiActivity },
+  { href: '/admin/username-requests', label: 'Username Requests', icon: FiUsers },
   { href: '/admin/settings', label: 'Settings', icon: FiSettings },
 ];
 

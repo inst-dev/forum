@@ -34,33 +34,28 @@ export async function threadRoutes(app: FastifyInstance) {
         },
       });
     } else {
-      // shortId format - find thread where id starts with normalized shortId
-      const normalizedId = threadId.replace(/-/g, '');
-      const threads = await prisma.thread.findMany({
-        where: { deletedAt: null },
-        select: { id: true },
-      });
-      const match = threads.find(t => t.id.replace(/-/g, '').startsWith(normalizedId));
-      if (match) {
-        thread = await prisma.thread.findUnique({
-          where: { id: match.id },
-          include: {
-            author: {
-              select: {
-                id: true, username: true, displayName: true, avatar: true,
-                memberStatus: true, role: true, points: true, reactionScore: true,
-                signature: true, createdAt: true, isVerified: true,
-                badges: { include: { badge: true }, take: 5 },
-              },
+      // shortId format - find thread where id starts with the shortId
+      thread = await prisma.thread.findFirst({
+        where: {
+          id: { startsWith: threadId },
+          deletedAt: null,
+        },
+        include: {
+          author: {
+            select: {
+              id: true, username: true, displayName: true, avatar: true,
+              memberStatus: true, role: true, points: true, reactionScore: true,
+              signature: true, createdAt: true, isVerified: true,
+              badges: { include: { badge: true }, take: 5 },
             },
-            forum: { select: { id: true, name: true, slug: true } },
-            prefix: { select: { id: true, name: true, color: true } },
-            tags: { include: { tag: { select: { id: true, name: true, slug: true } } } },
-            poll: { include: { options: { orderBy: { sortOrder: 'asc' } } } },
-            attachments: { select: { id: true, fileName: true, originalName: true, mimeType: true, size: true, url: true } },
           },
-        });
-      }
+          forum: { select: { id: true, name: true, slug: true } },
+          prefix: { select: { id: true, name: true, color: true } },
+          tags: { include: { tag: { select: { id: true, name: true, slug: true } } } },
+          poll: { include: { options: { orderBy: { sortOrder: 'asc' } } } },
+          attachments: { select: { id: true, fileName: true, originalName: true, mimeType: true, size: true, url: true } },
+        },
+      });
     }
 
     if (!thread || thread.deletedAt) {
@@ -472,6 +467,118 @@ export async function threadRoutes(app: FastifyInstance) {
       data: threads,
       meta: { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum), hasNext: pageNum * limitNum < total, hasPrev: pageNum > 1 },
     });
+  });
+
+  // Suggested threads (X-algorithm: recommend based on user's most liked posts)
+  app.get('/suggested', { preHandler: [authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const user = (request as any).user as JWTPayload;
+    const { limit = '10' } = request.query as { limit?: string };
+    const limitNum = Math.min(parseInt(limit), 30);
+
+    // Get user's recent reactions to find engagement patterns
+    const userReactions = await prisma.reaction.findMany({
+      where: { userId: user.userId, threadId: { not: null } },
+      select: { threadId: true, type: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+
+    if (userReactions.length === 0) {
+      // No engagement history - return popular threads
+      const popular = await prisma.thread.findMany({
+        where: { deletedAt: null, status: { not: 'ARCHIVED' } },
+        select: {
+          id: true, title: true, slug: true, type: true, viewCount: true,
+          commentCount: true, reactionCount: true, createdAt: true,
+          author: { select: { id: true, username: true, avatar: true, memberStatus: true } },
+          forum: { select: { id: true, name: true, slug: true } },
+          tags: { include: { tag: { select: { id: true, name: true, slug: true } } } },
+        },
+        orderBy: { reactionCount: 'desc' },
+        take: limitNum,
+      });
+      return reply.send({ success: true, data: popular, meta: { algorithm: 'popular_fallback' } });
+    }
+
+    // Get details of threads user reacted to
+    const reactedThreadIds = userReactions.map(r => r.threadId).filter(Boolean) as string[];
+    const reactedThreads = await prisma.thread.findMany({
+      where: { id: { in: reactedThreadIds } },
+      select: { id: true, forumId: true, authorId: true, tags: { select: { tagId: true } } },
+    });
+
+    // Calculate engagement weights (like X's weighted scorer)
+    const reactionWeights: Record<string, number> = {
+      like: 1.0, love: 1.5, helpful: 2.0, funny: 0.8, sad: 0.3, angry: -0.5,
+    };
+    const forumScores: Record<string, number> = {};
+    const authorScores: Record<string, number> = {};
+    const tagScores: Record<string, number> = {};
+
+    reactedThreads.forEach((thread, idx) => {
+      const reaction = userReactions.find(r => r.threadId === thread.id);
+      const weight = reactionWeights[reaction?.type || 'like'] || 1.0;
+      const recencyBoost = 1.0 + (50 - idx) / 50;
+      const score = weight * recencyBoost;
+
+      forumScores[thread.forumId] = (forumScores[thread.forumId] || 0) + score;
+      authorScores[thread.authorId] = (authorScores[thread.authorId] || 0) + score;
+      thread.tags.forEach(t => { tagScores[t.tagId] = (tagScores[t.tagId] || 0) + score; });
+    });
+
+    const topForums = Object.entries(forumScores).sort((a, b) => b[1] - a[1]).slice(0, 5).map(e => e[0]);
+    const topAuthors = Object.entries(authorScores).sort((a, b) => b[1] - a[1]).slice(0, 10).map(e => e[0]);
+    const topTags = Object.entries(tagScores).sort((a, b) => b[1] - a[1]).slice(0, 10).map(e => e[0]);
+
+    // Fetch candidates not already reacted to
+    const candidates = await prisma.thread.findMany({
+      where: {
+        deletedAt: null, status: { not: 'ARCHIVED' },
+        id: { notIn: reactedThreadIds },
+        authorId: { not: user.userId },
+        OR: [
+          { forumId: { in: topForums } },
+          { authorId: { in: topAuthors } },
+          ...(topTags.length > 0 ? [{ tags: { some: { tagId: { in: topTags } } } }] : []),
+        ],
+      },
+      select: {
+        id: true, title: true, slug: true, type: true, viewCount: true,
+        commentCount: true, reactionCount: true, createdAt: true,
+        forumId: true, authorId: true,
+        author: { select: { id: true, username: true, avatar: true, memberStatus: true } },
+        forum: { select: { id: true, name: true, slug: true } },
+        tags: { include: { tag: { select: { id: true, name: true, slug: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    // Score each candidate
+    const scored = candidates.map(thread => {
+      let score = 0;
+      score += (forumScores[thread.forumId] || 0) * 2.0;
+      score += (authorScores[thread.authorId] || 0) * 1.5;
+      thread.tags.forEach(t => { score += (tagScores[t.tagId] || 0) * 1.0; });
+      score += Math.log1p(thread.reactionCount) * 0.5;
+      score += Math.log1p(thread.commentCount) * 0.3;
+      const ageHours = (Date.now() - new Date(thread.createdAt).getTime()) / 3600000;
+      if (ageHours < 168) score *= 1.0 + (168 - ageHours) / 168;
+      return { ...thread, _score: score };
+    });
+
+    // Sort by score, apply author diversity
+    scored.sort((a, b) => b._score - a._score);
+    const authorCount: Record<string, number> = {};
+    const diversified = scored.filter(t => {
+      const count = authorCount[t.authorId] || 0;
+      if (count >= 2) return false;
+      authorCount[t.authorId] = count + 1;
+      return true;
+    }).slice(0, limitNum);
+
+    const result = diversified.map(({ _score, forumId, authorId, ...rest }) => rest);
+    return reply.send({ success: true, data: result, meta: { algorithm: 'engagement_weighted' } });
   });
 
   // Save/update draft
