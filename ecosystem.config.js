@@ -1,0 +1,53 @@
+module.exports = {
+  apps: [
+    {
+      name: 'nullforum-backend',
+      script: './services/backend/dist/server.js',
+      cwd: '/www/wwwroot/forum.inst.lk',
+      instances: 2,
+      exec_mode: 'cluster',
+      env: {
+        NODE_ENV: 'production',
+        API_PORT: 4000,
+      },
+      max_memory_restart: '500M',
+      error_file: '/www/wwwlogs/nullforum-backend-error.log',
+      out_file: '/www/wwwlogs/nullforum-backend-out.log',
+      merge_logs: true,
+      time: true,
+    },
+    {
+      name: 'nullforum-web',
+      script: 'node_modules/.bin/next',
+      args: 'start -p 3000',
+      cwd: '/www/wwwroot/forum.inst.lk/apps/web',
+      instances: 2,
+      exec_mode: 'cluster',
+      env: {
+        NODE_ENV: 'production',
+        PORT: 3000,
+      },
+      max_memory_restart: '500M',
+      error_file: '/www/wwwlogs/nullforum-web-error.log',
+      out_file: '/www/wwwlogs/nullforum-web-out.log',
+      merge_logs: true,
+      time: true,
+    },
+    {
+      name: 'nullforum-socket',
+      script: './services/backend/dist/server.js',
+      cwd: '/www/wwwroot/forum.inst.lk',
+      instances: 1,
+      env: {
+        NODE_ENV: 'production',
+        SOCKET_PORT: 4001,
+        IS_SOCKET_ONLY: 'true',
+      },
+      max_memory_restart: '300M',
+      error_file: '/www/wwwlogs/nullforum-socket-error.log',
+      out_file: '/www/wwwlogs/nullforum-socket-out.log',
+      merge_logs: true,
+      time: true,
+    },
+  ],
+};
