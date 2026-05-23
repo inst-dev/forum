@@ -8,6 +8,30 @@ export function generateSlug(title: string): string {
     .substring(0, 100);
 }
 
+export function generateShortId(): string {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < 7; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+export function buildThreadUrl(slug: string, id: string): string {
+  // Use first 8 chars of UUID as short identifier
+  const shortId = id.replace(/-/g, '').substring(0, 8);
+  return `/${slug}-${shortId}`;
+}
+
+export function parseThreadSlug(param: string): { slug: string; shortId: string } {
+  // The last segment after final hyphen is the shortId (8 chars)
+  const lastHyphen = param.lastIndexOf('-');
+  if (lastHyphen === -1) return { slug: param, shortId: '' };
+  const shortId = param.substring(lastHyphen + 1);
+  const slug = param.substring(0, lastHyphen);
+  return { slug, shortId };
+}
+
 export function generateUsername(firstName: string, lastName: string): string {
   const base = `${firstName}${lastName}`.toLowerCase().replace(/[^a-z0-9]/g, '');
   const suffix = Math.floor(Math.random() * 9999).toString().padStart(4, '0');

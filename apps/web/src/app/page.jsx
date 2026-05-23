@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { TimeAgo } from '@/components/ui/TimeAgo';
+import { buildThreadUrl } from '@/lib/thread-url';
 
 export const metadata = {
   title: 'Home',
@@ -36,7 +37,7 @@ export default async function HomePage() {
           </div>
           <div>
             {threads.map((thread) => (
-              <Link href={`/${thread.slug}/${thread.id}`} key={thread.id} className="ks2s7t">
+              <Link href={buildThreadUrl(thread.slug, thread.id)} key={thread.id} className="ks2s7t">
                 <img src={thread.author?.avatar || '/default-avatar.svg'} alt="" className="go4k9l hp6m1n" style={{ borderRadius: '50%' }} />
                 <div className="lt4u9v">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

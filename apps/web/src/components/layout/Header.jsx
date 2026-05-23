@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useTheme } from '@/components/providers/ThemeProvider';
+import { useSiteSettings } from '@/components/providers/SiteSettingsProvider';
 import { useState } from 'react';
 import { FiSun, FiMoon, FiMenu, FiBell, FiMessageSquare, FiSettings, FiLogOut, FiUser, FiBookmark, FiShield } from 'react-icons/fi';
 import { clientApi } from '@/lib/api';
@@ -10,6 +11,7 @@ import { clientApi } from '@/lib/api';
 export function Header() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { siteName, siteLogo } = useSiteSettings();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const handleThemeToggle = async () => {
@@ -23,7 +25,10 @@ export function Header() {
     <header className="hd9x4k">
       <div className="xk2m9f jf2m7l">
         <div className="mv8t2u">
-          <Link href="/" className="kw5p9n">{process.env.NEXT_PUBLIC_APP_NAME || 'NullForum'}</Link>
+          <Link href="/" className="kw5p9n" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {siteLogo && <img src={siteLogo} alt="" style={{ height: '28px', width: 'auto', borderRadius: '4px' }} />}
+            {!siteLogo && siteName}
+          </Link>
         </div>
 
         <nav className="nw4y1z">

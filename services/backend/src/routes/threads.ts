@@ -7,32 +7,61 @@ import { filterContent, calculateSpamScore } from '../lib/profanity';
 import { cache } from '../lib/redis';
 
 export async function threadRoutes(app: FastifyInstance) {
-  // Get thread by slug and id
+  // Get thread by slug-shortId format
   app.get('/:slug/:threadId', async (request: FastifyRequest, reply: FastifyReply) => {
-    const { threadId } = request.params as { slug: string; threadId: string };
+    const { slug, threadId } = request.params as { slug: string; threadId: string };
 
-    const thread = await prisma.thread.findUnique({
-      where: { id: threadId },
-      include: {
-        author: {
-          select: {
-            id: true, username: true, displayName: true, avatar: true,
-            memberStatus: true, role: true, points: true, reactionScore: true,
-            signature: true, createdAt: true,
-            badges: { include: { badge: true }, take: 5 },
+    // Support both formats: direct UUID or shortId (first 8 chars of uuid without hyphens)
+    let thread;
+    if (threadId.length >= 32) {
+      // Full UUID format
+      thread = await prisma.thread.findUnique({
+        where: { id: threadId },
+        include: {
+          author: {
+            select: {
+              id: true, username: true, displayName: true, avatar: true,
+              memberStatus: true, role: true, points: true, reactionScore: true,
+              signature: true, createdAt: true, isVerified: true,
+              badges: { include: { badge: true }, take: 5 },
+            },
           },
+          forum: { select: { id: true, name: true, slug: true } },
+          prefix: { select: { id: true, name: true, color: true } },
+          tags: { include: { tag: { select: { id: true, name: true, slug: true } } } },
+          poll: { include: { options: { orderBy: { sortOrder: 'asc' } } } },
+          attachments: { select: { id: true, fileName: true, originalName: true, mimeType: true, size: true, url: true } },
         },
-        forum: { select: { id: true, name: true, slug: true } },
-        prefix: { select: { id: true, name: true, color: true } },
-        tags: { include: { tag: { select: { id: true, name: true, slug: true } } } },
-        poll: {
+      });
+    } else {
+      // shortId format - find thread where id starts with normalized shortId
+      const normalizedId = threadId.replace(/-/g, '');
+      const threads = await prisma.thread.findMany({
+        where: { deletedAt: null },
+        select: { id: true },
+      });
+      const match = threads.find(t => t.id.replace(/-/g, '').startsWith(normalizedId));
+      if (match) {
+        thread = await prisma.thread.findUnique({
+          where: { id: match.id },
           include: {
-            options: { orderBy: { sortOrder: 'asc' } },
+            author: {
+              select: {
+                id: true, username: true, displayName: true, avatar: true,
+                memberStatus: true, role: true, points: true, reactionScore: true,
+                signature: true, createdAt: true, isVerified: true,
+                badges: { include: { badge: true }, take: 5 },
+              },
+            },
+            forum: { select: { id: true, name: true, slug: true } },
+            prefix: { select: { id: true, name: true, color: true } },
+            tags: { include: { tag: { select: { id: true, name: true, slug: true } } } },
+            poll: { include: { options: { orderBy: { sortOrder: 'asc' } } } },
+            attachments: { select: { id: true, fileName: true, originalName: true, mimeType: true, size: true, url: true } },
           },
-        },
-        attachments: { select: { id: true, fileName: true, originalName: true, mimeType: true, size: true, url: true } },
-      },
-    });
+        });
+      }
+    }
 
     if (!thread || thread.deletedAt) {
       return reply.status(404).send({

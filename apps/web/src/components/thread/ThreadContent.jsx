@@ -18,21 +18,23 @@ export function ThreadContent({ thread }) {
 
   // Check if already bookmarked/watching on mount
   useEffect(() => {
-    if (!user) return;
+    if (!user || !user.id) return;
     async function checkState() {
-      const [bRes, wRes] = await Promise.all([
-        clientApi.get('/users/bookmarks?limit=100'),
-        clientApi.get('/users/watched-threads?limit=100'),
-      ]);
-      if (bRes.success && bRes.data) {
-        setBookmarked(bRes.data.some(t => t.id === thread.id));
-      }
-      if (wRes.success && wRes.data) {
-        setWatching(wRes.data.some(t => t.id === thread.id));
-      }
+      try {
+        const [bRes, wRes] = await Promise.all([
+          clientApi.get('/users/bookmarks?limit=100'),
+          clientApi.get('/users/watched-threads?limit=100'),
+        ]);
+        if (bRes.success && Array.isArray(bRes.data)) {
+          setBookmarked(bRes.data.some(t => t?.id === thread.id));
+        }
+        if (wRes.success && Array.isArray(wRes.data)) {
+          setWatching(wRes.data.some(t => t?.id === thread.id));
+        }
+      } catch {}
     }
     checkState();
-  }, [user, thread.id]);
+  }, [user?.id, thread.id]);
 
   const handleBookmark = async () => {
     if (!user) { toast.error('Please log in'); return; }
@@ -118,7 +120,7 @@ export function ThreadContent({ thread }) {
 
 export function ReactionBar({ targetType, targetId }) {
   const { user } = useAuth();
-  const [reacted, setReacted] = useState(null);
+  const [myReactions, setMyReactions] = useState(new Set());
   const [counts, setCounts] = useState({});
 
   useEffect(() => {
@@ -127,27 +129,27 @@ export function ReactionBar({ targetType, targetId }) {
       const res = await clientApi.get(`/reactions/${type}/${targetId}`);
       if (res.success && res.data) {
         const newCounts = {};
-        let myReaction = null;
+        const mySet = new Set();
         for (const [rType, users] of Object.entries(res.data)) {
           newCounts[rType] = users.length;
           if (user && users.some(u => u.userId === user.id)) {
-            myReaction = rType;
+            mySet.add(rType);
           }
         }
         setCounts(newCounts);
-        setReacted(myReaction);
+        setMyReactions(mySet);
       }
     }
     load();
   }, [targetType, targetId, user]);
 
   const reactions = [
-    { type: 'like', icon: <AiOutlineLike size={16} />, activeIcon: <AiFillLike size={16} />, label: 'Like' },
-    { type: 'love', icon: <AiOutlineHeart size={16} />, activeIcon: <AiFillHeart size={16} />, label: 'Love' },
-    { type: 'funny', icon: <BsEmojiLaughing size={16} />, activeIcon: <BsEmojiLaughing size={16} />, label: 'Funny' },
-    { type: 'helpful', icon: <BsLightbulb size={16} />, activeIcon: <BsLightbulb size={16} />, label: 'Helpful' },
-    { type: 'sad', icon: <BsEmojiFrown size={16} />, activeIcon: <BsEmojiFrown size={16} />, label: 'Sad' },
-    { type: 'angry', icon: <BsEmojiAngry size={16} />, activeIcon: <BsEmojiAngry size={16} />, label: 'Angry' },
+    { type: 'like', icon: <AiOutlineLike size={16} />, activeIcon: <AiFillLike size={16} />, label: 'Like', color: '#1a73e8' },
+    { type: 'love', icon: <AiOutlineHeart size={16} />, activeIcon: <AiFillHeart size={16} />, label: 'Love', color: '#e91e63' },
+    { type: 'funny', icon: <BsEmojiLaughing size={16} />, activeIcon: <BsEmojiLaughing size={16} />, label: 'Funny', color: '#f9ab00' },
+    { type: 'helpful', icon: <BsLightbulb size={16} />, activeIcon: <BsLightbulb size={16} />, label: 'Helpful', color: '#0f9d58' },
+    { type: 'sad', icon: <BsEmojiFrown size={16} />, activeIcon: <BsEmojiFrown size={16} />, label: 'Sad', color: '#7c4dff' },
+    { type: 'angry', icon: <BsEmojiAngry size={16} />, activeIcon: <BsEmojiAngry size={16} />, label: 'Angry', color: '#d93025' },
   ];
 
   const handleReact = async (type) => {
@@ -155,15 +157,10 @@ export function ReactionBar({ targetType, targetId }) {
     const res = await clientApi.post('/reactions', { targetType, targetId, reactionType: type });
     if (res.success) {
       if (res.data.action === 'added') {
-        // If switching reaction, decrement old
-        if (reacted && reacted !== type) {
-          setCounts(prev => ({ ...prev, [reacted]: Math.max(0, (prev[reacted] || 0) - 1) }));
-        }
-        setReacted(type);
+        setMyReactions(prev => new Set([...prev, type]));
         setCounts(prev => ({ ...prev, [type]: (prev[type] || 0) + 1 }));
-        toast.success(`Reacted with ${type}`);
       } else {
-        setReacted(null);
+        setMyReactions(prev => { const n = new Set(prev); n.delete(type); return n; });
         setCounts(prev => ({ ...prev, [type]: Math.max(0, (prev[type] || 0) - 1) }));
       }
     }
@@ -171,12 +168,21 @@ export function ReactionBar({ targetType, targetId }) {
 
   return (
     <div className="nv0y5z">
-      {reactions.map(r => (
-        <button key={r.type} onClick={() => handleReact(r.type)} className={`ow2a7b ${reacted === r.type ? 'px4c9d' : ''}`} title={r.label}>
-          {reacted === r.type ? r.activeIcon : r.icon}
-          {(counts[r.type] || 0) > 0 && <span style={{ fontSize: '12px', fontWeight: 600 }}>{counts[r.type]}</span>}
-        </button>
-      ))}
+      {reactions.map(r => {
+        const isActive = myReactions.has(r.type);
+        return (
+          <button
+            key={r.type}
+            onClick={() => handleReact(r.type)}
+            className="ow2a7b"
+            title={r.label}
+            style={isActive ? { borderColor: r.color, background: r.color + '15', color: r.color } : {}}
+          >
+            {isActive ? r.activeIcon : r.icon}
+            {(counts[r.type] || 0) > 0 && <span style={{ fontSize: '12px', fontWeight: 600 }}>{counts[r.type]}</span>}
+          </button>
+        );
+      })}
     </div>
   );
 }

@@ -319,6 +319,20 @@ export async function adminRoutes(app: FastifyInstance) {
     return reply.send({ success: true, data: { message: 'Deleted' } });
   });
 
+  // Get public site settings (no auth required)
+  app.get('/settings/public', async (request: FastifyRequest, reply: FastifyReply) => {
+    const cached = await cache.get('settings:public');
+    if (cached) return reply.send({ success: true, data: cached });
+
+    const settings = await prisma.siteSetting.findMany({
+      where: { key: { in: ['site_name', 'site_description', 'site_logo', 'site_favicon', 'primary_color', 'maintenance_mode'] } },
+    });
+    const mapped = settings.reduce((acc: any, s) => { acc[s.key] = s.value; return acc; }, {});
+
+    await cache.set('settings:public', mapped, 30);
+    return reply.send({ success: true, data: mapped });
+  });
+
   // Get active notification bars (public)
   app.get('/notification-bars/active', async (request: FastifyRequest, reply: FastifyReply) => {
     const cached = await cache.get('notification-bars:active');

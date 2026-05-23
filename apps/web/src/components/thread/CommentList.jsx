@@ -5,9 +5,11 @@ import { useState } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { clientApi } from '@/lib/api';
 import { TimeAgo } from '@/components/ui/TimeAgo';
+import { UserHoverCard } from '@/components/ui/UserHoverCard';
 import { ReactionBar } from './ThreadContent';
 import { FiCornerDownRight, FiEdit2, FiTrash2 } from 'react-icons/fi';
 import { toast } from 'sonner';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 const MAX_NESTING_DEPTH = 4;
 
@@ -82,6 +84,7 @@ export function CommentList({ comments, meta, threadId, slug, page }) {
 
 function CommentItem({ comment, threadId, depth }) {
   const { user } = useAuth();
+  const confirm = useConfirm();
   const [showReply, setShowReply] = useState(false);
   const [replyContent, setReplyContent] = useState('');
   const [replies, setReplies] = useState(comment.replies || []);
@@ -119,7 +122,12 @@ function CommentItem({ comment, threadId, depth }) {
   };
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this comment?')) return;
+    const confirmed = await confirm({
+      title: 'Delete Comment',
+      message: 'Are you sure you want to delete this comment? This action cannot be undone.',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
     const res = await clientApi.delete(`/comments/${comment.id}`);
     if (res.success) {
       setIsDeleted(true);
@@ -147,7 +155,9 @@ function CommentItem({ comment, threadId, depth }) {
         <div className="qm5d0e">
           <div className="rn7f2g">
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Link href={`/users/${comment.author?.username}`} style={{ fontWeight: 600, fontSize: '14px' }}>{comment.author?.displayName || comment.author?.username}</Link>
+              <UserHoverCard username={comment.author?.username}>
+                <Link href={`/users/${comment.author?.username}`} style={{ fontWeight: 600, fontSize: '14px' }}>{comment.author?.displayName || comment.author?.username}</Link>
+              </UserHoverCard>
               <span className="px2c7d qy4e9f" style={{ fontSize: '10px' }}>{comment.author?.memberStatus || comment.author?.role}</span>
               {isEdited && <span style={{ fontSize: '11px', color: 'var(--c-warning)', fontWeight: 500 }}>edited</span>}
             </div>

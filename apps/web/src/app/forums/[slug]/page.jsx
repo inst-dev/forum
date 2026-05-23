@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { notFound } from 'next/navigation';
 import { TimeAgo } from '@/components/ui/TimeAgo';
+import { buildThreadUrl } from '@/lib/thread-url';
 
 export async function generateMetadata({ params }) {
   const res = await api.get(`/forums/${params.slug}`);
@@ -65,7 +66,7 @@ export default async function ForumPage({ params, searchParams }) {
       {/* Thread List */}
       <div className="xf6s1t" style={{ padding: 0, overflow: 'hidden' }}>
         {threads.map(thread => (
-          <Link href={`/${thread.slug}/${thread.id}`} key={thread.id} className="ks2s7t">
+          <Link href={buildThreadUrl(thread.slug, thread.id)} key={thread.id} className="ks2s7t">
             <img src={thread.author?.avatar || '/default-avatar.svg'} alt="" className="go4k9l hp6m1n" style={{ borderRadius: '50%' }} />
             <div className="lt4u9v">
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
