@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextIndex"]
 }
 
 datasource db {
@@ -678,8 +679,8 @@ model Report {
   
   reporter        User         @relation("Reporter", fields: [reporterId], references: [id])
   reportedUser    User?        @relation("Reported", fields: [reportedUserId], references: [id])
-  thread          Thread?      @relation(fields: [targetId], references: [id])
-  comment         Comment?     @relation(fields: [targetId], references: [id])
+  thread          Thread?      @relation(fields: [targetId], references: [id], map: "Report_thread_fkey")
+  comment         Comment?     @relation(fields: [targetId], references: [id], map: "Report_comment_fkey")
   
   @@index([reporterId])
   @@index([status])
