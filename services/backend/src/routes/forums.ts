@@ -22,6 +22,7 @@ export async function forumRoutes(app: FastifyInstance) {
               select: { id: true, name: true, slug: true, description: true, icon: true, threadCount: true, commentCount: true },
               orderBy: { sortOrder: 'asc' },
             },
+            _count: { select: { threads: { where: { deletedAt: null } } } },
           },
           orderBy: { sortOrder: 'asc' },
         },
@@ -40,14 +41,14 @@ export async function forumRoutes(app: FastifyInstance) {
         slug: f.slug,
         description: f.description,
         icon: f.icon,
-        threadCount: f.threadCount,
+        threadCount: f._count.threads,
         commentCount: f.commentCount,
         lastThreadAt: f.lastThreadAt,
         children: f.children,
       })),
     }));
 
-    await cache.set('forums:categories', data, 300);
+    await cache.set('forums:categories', data, 60);
     return reply.send({ success: true, data });
   });
 
@@ -98,7 +99,8 @@ export async function forumRoutes(app: FastifyInstance) {
     const where: any = { forumId: forum.id, deletedAt: null };
     if (prefix) where.prefixId = prefix;
 
-    let orderBy: any = [{ isPinned: 'desc' }, { isSticky: 'desc' }, { lastCommentAt: 'desc' }];
+    let orderBy: any = [{ isPinned: 'desc' }, { isSticky: 'desc' }, { createdAt: 'desc' }];
+    if (sort === 'latest') orderBy = [{ isPinned: 'desc' }, { isSticky: 'desc' }, { createdAt: 'desc' }];
     if (sort === 'newest') orderBy = [{ isPinned: 'desc' }, { createdAt: 'desc' }];
     if (sort === 'views') orderBy = [{ isPinned: 'desc' }, { viewCount: 'desc' }];
     if (sort === 'replies') orderBy = [{ isPinned: 'desc' }, { commentCount: 'desc' }];

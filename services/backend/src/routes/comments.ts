@@ -41,9 +41,24 @@ export async function commentRoutes(app: FastifyInstance) {
                 },
               },
               reactions: { select: { type: true, userId: true } },
+              replies: {
+                where: { deletedAt: null },
+                include: {
+                  author: {
+                    select: { id: true, username: true, displayName: true, avatar: true, memberStatus: true, role: true },
+                  },
+                  replies: {
+                    where: { deletedAt: null },
+                    include: {
+                      author: { select: { id: true, username: true, displayName: true, avatar: true, memberStatus: true, role: true } },
+                    },
+                    orderBy: { createdAt: 'asc' },
+                  },
+                },
+                orderBy: { createdAt: 'asc' },
+              },
             },
             orderBy: { createdAt: 'asc' },
-            take: 5,
           },
           attachments: { select: { id: true, fileName: true, originalName: true, mimeType: true, url: true } },
           _count: { select: { replies: true } },

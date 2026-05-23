@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { clientApi } from '@/lib/api';
 import { TimeAgo } from '@/components/ui/TimeAgo';
@@ -100,6 +100,28 @@ function ReactionBar({ targetType, targetId }) {
   const { user } = useAuth();
   const [reacted, setReacted] = useState(null);
   const [counts, setCounts] = useState({});
+  const [loaded, setLoaded] = useState(false);
+
+  // Load existing reactions on mount
+  useEffect(() => {
+    async function loadReactions() {
+      const type = targetType === 'THREAD' ? 'thread' : 'comment';
+      const res = await clientApi.get(`/reactions/${type}/${targetId}`);
+      if (res.success && res.data) {
+        const newCounts = {};
+        for (const [rType, users] of Object.entries(res.data)) {
+          newCounts[rType] = users.length;
+          // Check if current user has reacted
+          if (user && users.some(u => u.userId === user.id)) {
+            setReacted(rType);
+          }
+        }
+        setCounts(newCounts);
+      }
+      setLoaded(true);
+    }
+    loadReactions();
+  }, [targetType, targetId, user]);
 
   const reactions = [
     { type: 'like', icon: <AiOutlineLike size={16} />, activeIcon: <AiFillLike size={16} />, label: 'Like' },
@@ -132,7 +154,7 @@ function ReactionBar({ targetType, targetId }) {
       {reactions.map(r => (
         <button key={r.type} onClick={() => handleReact(r.type)} className={`ow2a7b ${reacted === r.type ? 'px4c9d' : ''}`} title={r.label}>
           {reacted === r.type ? r.activeIcon : r.icon}
-          {counts[r.type] > 0 && <span>{counts[r.type]}</span>}
+          {(counts[r.type] || 0) > 0 && <span style={{ fontSize: '12px', fontWeight: 500 }}>{counts[r.type]}</span>}
         </button>
       ))}
     </div>
