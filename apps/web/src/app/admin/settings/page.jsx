@@ -3,52 +3,128 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { clientApi } from '@/lib/api';
+import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
+import { ColorPicker } from '@/components/ui/ColorPicker';
+import { ImageUpload } from '@/components/ui/ImageUpload';
+import { toast } from 'sonner';
 
 export default function AdminSettingsPage() {
   const { user } = useAuth();
-  const [settings, setSettings] = useState({});
-  const [message, setMessage] = useState('');
+  const [settings, setSettings] = useState({
+    site_name: 'NullForum',
+    site_description: '',
+    site_logo: '',
+    site_favicon: '',
+    primary_color: '#1a73e8',
+    registration_enabled: 'true',
+    require_email_verification: 'true',
+    max_upload_size: '10',
+    captcha_enabled: 'false',
+    maintenance_mode: 'false',
+  });
 
   useEffect(() => {
     async function load() {
       const res = await clientApi.get('/admin/settings');
-      if (res.success) setSettings(res.data);
+      if (res.success) setSettings(prev => ({ ...prev, ...res.data }));
     }
     if (user?.role === 'ADMIN') load();
   }, [user]);
 
   const handleSave = async () => {
     const res = await clientApi.put('/admin/settings', settings);
-    setMessage(res.success ? 'Settings saved!' : 'Failed to save');
+    if (res.success) toast.success('Settings saved successfully');
+    else toast.error('Failed to save settings');
+  };
+
+  const updateSetting = (key, value) => {
+    setSettings(prev => ({ ...prev, [key]: String(value) }));
   };
 
   if (!user || user.role !== 'ADMIN') return <div className="uc4m9n"><p>Access denied.</p></div>;
 
-  const fields = [
-    { key: 'site_name', label: 'Site Name', type: 'text' },
-    { key: 'site_description', label: 'Site Description', type: 'text' },
-    { key: 'site_logo', label: 'Logo URL', type: 'text' },
-    { key: 'site_favicon', label: 'Favicon URL', type: 'text' },
-    { key: 'primary_color', label: 'Primary Color', type: 'text' },
-    { key: 'registration_enabled', label: 'Registration Enabled', type: 'text' },
-    { key: 'require_email_verification', label: 'Require Email Verification', type: 'text' },
-    { key: 'max_upload_size', label: 'Max Upload Size (MB)', type: 'text' },
-    { key: 'captcha_enabled', label: 'CAPTCHA Enabled', type: 'text' },
-    { key: 'maintenance_mode', label: 'Maintenance Mode', type: 'text' },
-  ];
-
   return (
     <div>
       <h1 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '20px' }}>Site Settings</h1>
-      {message && <div style={{ padding: '8px 12px', marginBottom: '16px', borderRadius: 'var(--c-radius-sm)', background: 'var(--c-success)', color: '#fff', fontSize: '14px' }}>{message}</div>}
-      <div className="xf6s1t ai2y7z">
-        {fields.map(field => (
-          <div key={field.key} className="bj4a9b">
-            <label className="ck6c1d">{field.label}</label>
-            <input className="dl8e3f" value={settings[field.key] || ''} onChange={e => setSettings({ ...settings, [field.key]: e.target.value })} />
+
+      <div className="pm5k8w">
+        {/* General */}
+        <div className="xf6s1t">
+          <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '16px' }}>General</h3>
+          <div className="ai2y7z">
+            <div className="bj4a9b">
+              <label className="ck6c1d">Site Name</label>
+              <input className="dl8e3f" value={settings.site_name} onChange={e => updateSetting('site_name', e.target.value)} />
+            </div>
+            <div className="bj4a9b">
+              <label className="ck6c1d">Site Description</label>
+              <input className="dl8e3f" value={settings.site_description} onChange={e => updateSetting('site_description', e.target.value)} />
+            </div>
           </div>
-        ))}
-        <button onClick={handleSave} className="qy2e7f rz4g9h">Save Settings</button>
+        </div>
+
+        {/* Branding */}
+        <div className="xf6s1t">
+          <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '16px' }}>Branding</h3>
+          <div className="ai2y7z">
+            <ImageUpload
+              currentImage={settings.site_logo}
+              onUpload={(url) => updateSetting('site_logo', url)}
+              type="attachment"
+              label="Site Logo"
+            />
+            <ImageUpload
+              currentImage={settings.site_favicon}
+              onUpload={(url) => updateSetting('site_favicon', url)}
+              type="attachment"
+              label="Favicon"
+            />
+            <ColorPicker
+              value={settings.primary_color}
+              onChange={(color) => updateSetting('primary_color', color)}
+              label="Primary Color"
+            />
+          </div>
+        </div>
+
+        {/* Features */}
+        <div className="xf6s1t">
+          <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '16px' }}>Features</h3>
+          <div className="ai2y7z">
+            <ToggleSwitch
+              label="Registration Enabled"
+              checked={settings.registration_enabled === 'true'}
+              onChange={(v) => updateSetting('registration_enabled', v)}
+            />
+            <ToggleSwitch
+              label="Require Email Verification"
+              checked={settings.require_email_verification === 'true'}
+              onChange={(v) => updateSetting('require_email_verification', v)}
+            />
+            <ToggleSwitch
+              label="CAPTCHA Enabled"
+              checked={settings.captcha_enabled === 'true'}
+              onChange={(v) => updateSetting('captcha_enabled', v)}
+            />
+            <div className="bj4a9b">
+              <label className="ck6c1d">Max Upload Size (MB)</label>
+              <input className="dl8e3f" type="number" value={settings.max_upload_size} onChange={e => updateSetting('max_upload_size', e.target.value)} />
+            </div>
+          </div>
+        </div>
+
+        {/* Maintenance */}
+        <div className="xf6s1t" style={{ border: settings.maintenance_mode === 'true' ? '2px solid var(--c-error)' : undefined }}>
+          <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '16px', color: settings.maintenance_mode === 'true' ? 'var(--c-error)' : undefined }}>Maintenance Mode</h3>
+          <p style={{ fontSize: '13px', color: 'var(--c-text-muted)', marginBottom: '12px' }}>When enabled, the site will be inaccessible to all non-admin users.</p>
+          <ToggleSwitch
+            label="Enable Maintenance Mode"
+            checked={settings.maintenance_mode === 'true'}
+            onChange={(v) => updateSetting('maintenance_mode', v)}
+          />
+        </div>
+
+        <button onClick={handleSave} className="qy2e7f rz4g9h">Save All Settings</button>
       </div>
     </div>
   );

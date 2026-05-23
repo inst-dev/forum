@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { notFound } from 'next/navigation';
+import { TimeAgo } from '@/components/ui/TimeAgo';
 
 export async function generateMetadata({ params }) {
   const res = await api.get(`/forums/${params.slug}`);
@@ -27,10 +28,8 @@ export default async function ForumPage({ params, searchParams }) {
     <div>
       {/* Breadcrumb */}
       <nav style={{ fontSize: '13px', color: 'var(--c-text-muted)', marginBottom: '16px', display: 'flex', gap: '4px' }}>
-        <Link href="/">Home</Link>
-        <span>/</span>
-        <Link href="/forums">Forums</Link>
-        <span>/</span>
+        <Link href="/">Home</Link><span>/</span>
+        <Link href="/forums">Forums</Link><span>/</span>
         {forum.parent && (<><Link href={`/forums/${forum.parent.slug}`}>{forum.parent.name}</Link><span>/</span></>)}
         <span style={{ color: 'var(--c-text-primary)' }}>{forum.name}</span>
       </nav>
@@ -67,7 +66,7 @@ export default async function ForumPage({ params, searchParams }) {
       <div className="xf6s1t" style={{ padding: 0, overflow: 'hidden' }}>
         {threads.map(thread => (
           <Link href={`/${thread.slug}/${thread.id}`} key={thread.id} className="ks2s7t">
-            <img src={thread.author?.avatar || '/default-avatar.svg'} alt="" className="go4k9l hp6m1n" />
+            <img src={thread.author?.avatar || '/default-avatar.svg'} alt="" className="go4k9l hp6m1n" style={{ borderRadius: '50%' }} />
             <div className="lt4u9v">
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                 {thread.isPinned && <span className="px2c7d sa8i3j">Pinned</span>}
@@ -78,7 +77,7 @@ export default async function ForumPage({ params, searchParams }) {
               <div className="nv8y3z">
                 <span>{thread.author?.username}</span>
                 <span>&middot;</span>
-                <time>{new Date(thread.createdAt).toLocaleDateString()}</time>
+                <TimeAgo date={thread.createdAt} />
               </div>
             </div>
             <div className="ow0a5b">
@@ -89,7 +88,7 @@ export default async function ForumPage({ params, searchParams }) {
         ))}
         {threads.length === 0 && (
           <div className="uc4m9n">
-            <p style={{ color: 'var(--c-text-muted)' }}>No threads in this forum yet.</p>
+            <p style={{ color: 'var(--c-text-muted)' }}>No threads in this forum yet. <Link href={`/threads/new?forum=${forum.id}`}>Create the first one</Link></p>
           </div>
         )}
       </div>

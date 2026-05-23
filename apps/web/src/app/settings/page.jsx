@@ -4,11 +4,12 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { clientApi } from '@/lib/api';
+import { ImageUpload } from '@/components/ui/ImageUpload';
+import { toast } from 'sonner';
 
 export default function SettingsPage() {
   const { user } = useAuth();
   const [form, setForm] = useState({ displayName: '', bio: '', signature: '', statusMessage: '', location: '', website: '', twitter: '', github: '', discord: '', youtube: '' });
-  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -33,7 +34,8 @@ export default function SettingsPage() {
     setLoading(true);
     const res = await clientApi.put('/users/profile', form);
     setLoading(false);
-    setMessage(res.success ? 'Profile updated successfully!' : 'Failed to update profile');
+    if (res.success) toast.success('Profile updated successfully');
+    else toast.error('Failed to update profile');
   };
 
   if (!user) return <div className="uc4m9n"><p>Please log in to access settings.</p></div>;
@@ -52,7 +54,22 @@ export default function SettingsPage() {
 
       <div className="ws7p2q">
         <h1 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '20px' }}>Edit Profile</h1>
-        {message && <div style={{ padding: '8px 12px', marginBottom: '16px', borderRadius: 'var(--c-radius-sm)', background: 'var(--c-success)', color: '#fff', fontSize: '14px' }}>{message}</div>}
+
+        {/* Avatar & Cover Upload */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+          <ImageUpload
+            currentImage={user.avatar}
+            onUpload={(url) => toast.success('Avatar updated')}
+            type="avatar"
+            label="Profile Picture"
+          />
+          <ImageUpload
+            currentImage={user.banner}
+            onUpload={(url) => toast.success('Cover image updated')}
+            type="banner"
+            label="Cover Image"
+          />
+        </div>
 
         <form onSubmit={handleSubmit} className="ai2y7z">
           <div className="bj4a9b">
@@ -82,22 +99,10 @@ export default function SettingsPage() {
             <input className="dl8e3f" value={form.website} onChange={e => setForm({ ...form, website: e.target.value })} type="url" placeholder="https://" />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div className="bj4a9b">
-              <label className="ck6c1d">Twitter</label>
-              <input className="dl8e3f" value={form.twitter} onChange={e => setForm({ ...form, twitter: e.target.value })} placeholder="username" />
-            </div>
-            <div className="bj4a9b">
-              <label className="ck6c1d">GitHub</label>
-              <input className="dl8e3f" value={form.github} onChange={e => setForm({ ...form, github: e.target.value })} placeholder="username" />
-            </div>
-            <div className="bj4a9b">
-              <label className="ck6c1d">Discord</label>
-              <input className="dl8e3f" value={form.discord} onChange={e => setForm({ ...form, discord: e.target.value })} placeholder="username#0000" />
-            </div>
-            <div className="bj4a9b">
-              <label className="ck6c1d">YouTube</label>
-              <input className="dl8e3f" value={form.youtube} onChange={e => setForm({ ...form, youtube: e.target.value })} placeholder="channel URL" />
-            </div>
+            <div className="bj4a9b"><label className="ck6c1d">Twitter</label><input className="dl8e3f" value={form.twitter} onChange={e => setForm({ ...form, twitter: e.target.value })} placeholder="username" /></div>
+            <div className="bj4a9b"><label className="ck6c1d">GitHub</label><input className="dl8e3f" value={form.github} onChange={e => setForm({ ...form, github: e.target.value })} placeholder="username" /></div>
+            <div className="bj4a9b"><label className="ck6c1d">Discord</label><input className="dl8e3f" value={form.discord} onChange={e => setForm({ ...form, discord: e.target.value })} placeholder="username#0000" /></div>
+            <div className="bj4a9b"><label className="ck6c1d">YouTube</label><input className="dl8e3f" value={form.youtube} onChange={e => setForm({ ...form, youtube: e.target.value })} placeholder="channel URL" /></div>
           </div>
           <button type="submit" className="qy2e7f rz4g9h" disabled={loading}>{loading ? 'Saving...' : 'Save Changes'}</button>
         </form>

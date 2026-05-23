@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { api } from '@/lib/api';
+import { TimeAgo } from '@/components/ui/TimeAgo';
 
 export const metadata = {
   title: 'Home',
@@ -10,7 +11,7 @@ async function getHomeData() {
   try {
     const [categoriesRes, threadsRes] = await Promise.all([
       api.get('/forums/categories'),
-      api.get('/threads?limit=10&sort=active'),
+      api.get('/threads?limit=15&sort=active'),
     ]);
     return {
       categories: categoriesRes?.data || [],
@@ -27,45 +28,16 @@ export default async function HomePage() {
   return (
     <div className="zt6v2j">
       <div className="pm5k8w">
-        {/* Categories */}
-        {categories.map((category) => (
-          <section key={category.id} className="xf6s1t">
-            <h2 className="yg8u3v" style={{ fontSize: '16px', fontWeight: 600 }}>{category.name}</h2>
-            {category.description && <p className="nv8y3z" style={{ marginBottom: '12px' }}>{category.description}</p>}
-            <div>
-              {category.forums?.map((forum) => (
-                <Link href={`/forums/${forum.slug}`} key={forum.id} className="zh0w5x" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <span className="mu6w1x">{forum.icon} {forum.name}</span>
-                    {forum.description && <p className="nv8y3z">{forum.description}</p>}
-                    {forum.children?.length > 0 && (
-                      <div className="nv8y3z" style={{ marginTop: '4px' }}>
-                        {forum.children.map((child, i) => (
-                          <span key={child.id}>{i > 0 && ', '}{child.name}</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="ow0a5b">
-                    <span>{forum.threadCount} threads</span>
-                    <span>{forum.commentCount} posts</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
-        ))}
-
-        {/* Latest Threads */}
-        <section className="xf6s1t">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+        {/* Latest Threads FIRST */}
+        <section className="xf6s1t" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--c-border-light)' }}>
             <h2 style={{ fontSize: '16px', fontWeight: 600 }}>Latest Discussions</h2>
             <Link href="/threads" className="ox7a3b" style={{ fontSize: '14px' }}>View all</Link>
           </div>
           <div>
             {threads.map((thread) => (
               <Link href={`/${thread.slug}/${thread.id}`} key={thread.id} className="ks2s7t">
-                <img src={thread.author?.avatar || '/default-avatar.svg'} alt="" className="go4k9l hp6m1n" />
+                <img src={thread.author?.avatar || '/default-avatar.svg'} alt="" className="go4k9l hp6m1n" style={{ borderRadius: '50%' }} />
                 <div className="lt4u9v">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     {thread.prefix && <span className="px2c7d qy4e9f" style={{ background: thread.prefix.color + '20', color: thread.prefix.color }}>{thread.prefix.name}</span>}
@@ -77,7 +49,7 @@ export default async function HomePage() {
                     <span>&middot;</span>
                     <span>{thread.forum?.name}</span>
                     <span>&middot;</span>
-                    <time>{new Date(thread.createdAt).toLocaleDateString()}</time>
+                    <TimeAgo date={thread.lastCommentAt || thread.createdAt} />
                   </div>
                 </div>
                 <div className="ow0a5b">
@@ -88,11 +60,32 @@ export default async function HomePage() {
             ))}
             {threads.length === 0 && (
               <div className="uc4m9n">
-                <p className="nv8y3z">No threads yet. Be the first to create one!</p>
+                <p style={{ color: 'var(--c-text-muted)' }}>No threads yet. Be the first to create one!</p>
               </div>
             )}
           </div>
         </section>
+
+        {/* Categories */}
+        {categories.map((category) => (
+          <section key={category.id} className="xf6s1t">
+            <h2 className="yg8u3v" style={{ fontSize: '16px', fontWeight: 600 }}>{category.name}</h2>
+            <div>
+              {category.forums?.map((forum) => (
+                <Link href={`/forums/${forum.slug}`} key={forum.id} className="zh0w5x" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <span className="mu6w1x">{forum.icon} {forum.name}</span>
+                    {forum.description && <p className="nv8y3z">{forum.description}</p>}
+                  </div>
+                  <div className="ow0a5b">
+                    <span>{forum.threadCount} threads</span>
+                    <span>{forum.commentCount} posts</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ))}
       </div>
 
       {/* Sidebar */}
@@ -100,10 +93,7 @@ export default async function HomePage() {
         <div className="rz8g3h">
           <h3 className="sa0i5j">Forum Stats</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', color: 'var(--c-text-secondary)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Threads</span>
-              <strong>{threads.length}</strong>
-            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Threads</span><strong>{threads.length}</strong></div>
           </div>
         </div>
         <div className="rz8g3h">

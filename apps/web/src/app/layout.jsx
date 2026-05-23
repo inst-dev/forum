@@ -6,6 +6,7 @@ import { Footer } from '@/components/layout/Footer';
 import { NotificationBarWrapper } from '@/components/layout/NotificationBar';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { AuthProvider } from '@/components/providers/AuthProvider';
+import { Toaster } from 'sonner';
 
 export const metadata = {
   title: {
@@ -14,18 +15,9 @@ export const metadata = {
   },
   description: 'Enterprise-grade community forum platform',
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
-  openGraph: {
-    type: 'website',
-    siteName: process.env.NEXT_PUBLIC_APP_NAME || 'NullForum',
-    locale: 'en_US',
-  },
-  twitter: {
-    card: 'summary_large_image',
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
+  openGraph: { type: 'website', siteName: process.env.NEXT_PUBLIC_APP_NAME || 'NullForum', locale: 'en_US' },
+  twitter: { card: 'summary_large_image' },
+  robots: { index: true, follow: true },
 };
 
 export default function RootLayout({ children }) {
@@ -44,6 +36,7 @@ export default function RootLayout({ children }) {
               </main>
               <Footer />
             </div>
+            <Toaster position="top-right" richColors closeButton />
           </AuthProvider>
         </ThemeProvider>
       </body>
