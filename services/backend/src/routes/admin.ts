@@ -1,7 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '@nullforum/database';
 import { adminUserActionSchema, notificationBarSchema } from '@nullforum/shared';
-import { requireAdmin, requireModerator, JWTPayload } from '../lib/auth';
+import { requireAdmin, requireModerator, authenticate, JWTPayload } from '../lib/auth';
 import { cache } from '../lib/redis';
 import { sendWarningEmail } from '../lib/email';
 
