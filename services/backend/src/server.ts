@@ -137,8 +137,8 @@ async function start() {
 
   setupSocketIO(io);
 
-  const PORT = parseInt(process.env.API_PORT || '4000');
-  const SOCKET_PORT = parseInt(process.env.SOCKET_PORT || '4001');
+  const PORT = parseInt(process.env.API_PORT || '7107');
+  const SOCKET_PORT = parseInt(process.env.SOCKET_PORT || '6395');
 
   try {
     await app.listen({ port: PORT, host: '0.0.0.0' });

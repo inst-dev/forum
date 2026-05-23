@@ -8,7 +8,7 @@ module.exports = {
       exec_mode: 'cluster',
       env: {
         NODE_ENV: 'production',
-        API_PORT: 4000,
+        API_PORT: 7107,
       },
       max_memory_restart: '500M',
       error_file: '/www/wwwlogs/nullforum-backend-error.log',
@@ -19,13 +19,13 @@ module.exports = {
     {
       name: 'nullforum-web',
       script: 'node_modules/.bin/next',
-      args: 'start -p 3000',
+      args: 'start -p 5891',
       cwd: '/www/wwwroot/forum.inst.lk/apps/web',
       instances: 2,
       exec_mode: 'cluster',
       env: {
         NODE_ENV: 'production',
-        PORT: 3000,
+        PORT: 5891,
       },
       max_memory_restart: '500M',
       error_file: '/www/wwwlogs/nullforum-web-error.log',
@@ -40,7 +40,7 @@ module.exports = {
       instances: 1,
       env: {
         NODE_ENV: 'production',
-        SOCKET_PORT: 4001,
+        SOCKET_PORT: 6395,
         IS_SOCKET_ONLY: 'true',
       },
       max_memory_restart: '300M',

@@ -162,7 +162,7 @@ pm2 save
 pm2 status
 
 # Test health endpoint
-curl http://127.0.0.1:4000/health
+curl http://127.0.0.1:7107/health
 
 # Test frontend
 curl -I https://forum.inst.lk
@@ -262,18 +262,18 @@ Internet
 ┌─────────────────────────────────────────┐
 │  Nginx (port 443 SSL)                   │
 │                                         │
-│  /api/*        → 127.0.0.1:4000       │
-│  /socket.io/*  → 127.0.0.1:4001 (WS)  │
+│  /api/*        → 127.0.0.1:7107       │
+│  /socket.io/*  → 127.0.0.1:6395 (WS)  │
 │  /uploads/*    → static files           │
 │  /_next/static → static assets          │
-│  /*            → 127.0.0.1:3000       │
+│  /*            → 127.0.0.1:5891       │
 └─────────────────────────────────────────┘
          │              │             │
          ▼              ▼             ▼
    ┌──────────┐  ┌──────────┐  ┌──────────┐
    │ Fastify  │  │ Next.js  │  │Socket.IO │
    │ Backend  │  │ Frontend │  │ Realtime │
-   │ :4000    │  │ :3000    │  │ :4001    │
+   │ :7107    │  │ :5891    │  │ :6395    │
    └────┬─────┘  └──────────┘  └────┬─────┘
         │                            │
         ▼                            ▼
