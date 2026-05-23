@@ -156,8 +156,8 @@ model OAuthAccount {
 model Session {
   id              String   @id @default(uuid())
   userId          String
-  token           String   @unique
-  refreshToken    String   @unique
+  token           String   @unique @db.VarChar(512)
+  refreshToken    String   @unique @db.VarChar(512)
   deviceInfo      String?
   ipAddress       String?
   userAgent       String?  @db.Text
@@ -170,8 +170,6 @@ model Session {
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@index([userId])
-  @@index([token])
-  @@index([refreshToken])
   @@index([expiresAt])
 }
 
