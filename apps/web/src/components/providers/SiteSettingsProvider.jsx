@@ -44,6 +44,12 @@ export function SiteSettingsProvider({ children }) {
           if (res.data.primary_color) {
             document.documentElement.style.setProperty('--c-accent', res.data.primary_color);
           }
+          // Set dynamic favicon
+          if (res.data.site_favicon) {
+            let link = document.querySelector("link[rel~='icon']");
+            if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
+            link.href = res.data.site_favicon;
+          }
         } else {
           setSettings(prev => ({ ...prev, loading: false }));
         }

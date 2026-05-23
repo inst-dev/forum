@@ -42,6 +42,14 @@ export default function AdminSettingsPage() {
     setSettings(prev => ({ ...prev, [key]: String(value) }));
   };
 
+  const updateSettingAndSave = async (key, value) => {
+    const updated = { ...settings, [key]: String(value) };
+    setSettings(updated);
+    const res = await clientApi.put('/admin/settings', { [key]: String(value) });
+    if (res.success) toast.success('Saved');
+    else toast.error('Failed to save');
+  };
+
   if (!user || user.role !== 'ADMIN') return <div className="uc4m9n"><p>Access denied.</p></div>;
 
   return (
@@ -68,18 +76,36 @@ export default function AdminSettingsPage() {
         <div className="xf6s1t">
           <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '16px' }}>Branding</h3>
           <div className="ai2y7z">
-            <ImageUpload
-              currentImage={settings.site_logo}
-              onUpload={(url) => updateSetting('site_logo', url)}
-              type="attachment"
-              label="Site Logo"
-            />
-            <ImageUpload
-              currentImage={settings.site_favicon}
-              onUpload={(url) => updateSetting('site_favicon', url)}
-              type="attachment"
-              label="Favicon"
-            />
+            <div className="bj4a9b">
+              <label className="ck6c1d">Site Logo</label>
+              {settings.site_logo && (
+                <div style={{ marginBottom: '8px', padding: '12px', background: 'var(--c-bg-secondary)', borderRadius: 'var(--c-radius-md)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <img src={settings.site_logo} alt="Current logo" style={{ height: '40px', width: 'auto', borderRadius: '4px' }} />
+                  <span style={{ fontSize: '13px', color: 'var(--c-text-muted)' }}>Current logo</span>
+                </div>
+              )}
+              <ImageUpload
+                currentImage={settings.site_logo}
+                onUpload={(url) => updateSettingAndSave('site_logo', url)}
+                type="attachment"
+                label="Upload new logo"
+              />
+            </div>
+            <div className="bj4a9b">
+              <label className="ck6c1d">Favicon</label>
+              {settings.site_favicon && (
+                <div style={{ marginBottom: '8px', padding: '12px', background: 'var(--c-bg-secondary)', borderRadius: 'var(--c-radius-md)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <img src={settings.site_favicon} alt="Current favicon" style={{ height: '32px', width: '32px', borderRadius: '4px', objectFit: 'contain' }} />
+                  <span style={{ fontSize: '13px', color: 'var(--c-text-muted)' }}>Current favicon</span>
+                </div>
+              )}
+              <ImageUpload
+                currentImage={settings.site_favicon}
+                onUpload={(url) => updateSettingAndSave('site_favicon', url)}
+                type="attachment"
+                label="Upload new favicon"
+              />
+            </div>
             <ColorPicker
               value={settings.primary_color}
               onChange={(color) => updateSetting('primary_color', color)}

@@ -79,11 +79,15 @@ async function start() {
 
   // Public site settings (non-sensitive, for frontend providers)
   app.get('/api/site-settings', async (request, reply) => {
-    const settings = await prisma.siteSetting.findMany({
-      where: { key: { in: ['site_name', 'site_description', 'site_logo', 'site_favicon', 'primary_color', 'maintenance_mode', 'registration_enabled'] } },
-    });
-    const mapped = settings.reduce((acc: any, s: any) => { acc[s.key] = s.value; return acc; }, {});
-    return reply.send({ success: true, data: mapped });
+    try {
+      const settings = await prisma.siteSetting.findMany({
+        where: { key: { in: ['site_name', 'site_description', 'site_logo', 'site_favicon', 'primary_color', 'maintenance_mode', 'registration_enabled'] } },
+      });
+      const mapped = settings.reduce((acc: any, s: any) => { acc[s.key] = s.value; return acc; }, {});
+      return reply.send({ success: true, data: mapped });
+    } catch (err) {
+      return reply.send({ success: true, data: {} });
+    }
   });
 
   // API Routes
