@@ -13,7 +13,7 @@ async function getHomeData() {
   try {
     const [categoriesRes, threadsRes] = await Promise.all([
       api.get('/forums/categories'),
-      api.get('/threads?limit=15&sort=active'),
+      api.get('/threads?limit=20&sort=active'),
     ]);
     return {
       categories: categoriesRes?.data || [],
@@ -29,12 +29,15 @@ export default async function HomePage() {
 
   return (
     <div className="zt6v2j">
+      {/* Main Feed - Latest + Recommended mixed like a social feed */}
       <div className="pm5k8w">
-        {/* Latest Threads FIRST */}
         <section className="xf6s1t" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--c-border-light)' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: 600 }}>Latest Discussions</h2>
-            <Link href="/threads" className="ox7a3b" style={{ fontSize: '14px' }}>View all</Link>
+            <h2 style={{ fontSize: '16px', fontWeight: 600 }}>Feed</h2>
+            <div style={{ display: 'flex', gap: '12px', fontSize: '13px' }}>
+              <Link href="/threads" className="ox7a3b">Latest</Link>
+              <Link href="/threads?sort=popular" className="ox7a3b">Popular</Link>
+            </div>
           </div>
           <div>
             {threads.map((thread) => (
@@ -68,32 +71,11 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {/* Suggested For You (X-algorithm powered) */}
+        {/* AI Recommended Section */}
         <SuggestedThreads />
-
-        {/* Categories */}
-        {categories.map((category) => (
-          <section key={category.id} className="xf6s1t">
-            <h2 className="yg8u3v" style={{ fontSize: '16px', fontWeight: 600 }}>{category.name}</h2>
-            <div>
-              {category.forums?.map((forum) => (
-                <Link href={`/forums/${forum.slug}`} key={forum.id} className="zh0w5x" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <span className="mu6w1x">{forum.icon} {forum.name}</span>
-                    {forum.description && <p className="nv8y3z">{forum.description}</p>}
-                  </div>
-                  <div className="ow0a5b">
-                    <span>{forum.threadCount} threads</span>
-                    <span>{forum.commentCount} posts</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
-        ))}
       </div>
 
-      {/* Sidebar */}
+      {/* Sidebar - Stats, Categories, Online Users */}
       <aside className="qy6e1f">
         <div className="rz8g3h">
           <h3 className="sa0i5j">Forum Stats</h3>
@@ -101,10 +83,29 @@ export default async function HomePage() {
             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Threads</span><strong>{threads.length}</strong></div>
           </div>
         </div>
+
         <div className="rz8g3h">
           <h3 className="sa0i5j">Online Users</h3>
           <p style={{ fontSize: '13px', color: 'var(--c-text-muted)' }}>Members viewing the forum</p>
         </div>
+
+        {/* Forum Categories */}
+        {categories.map((category) => (
+          <div key={category.id} className="rz8g3h">
+            <h3 className="sa0i5j">{category.name}</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              {category.forums?.map((forum) => (
+                <Link href={`/forums/${forum.slug}`} key={forum.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 8px', borderRadius: 'var(--c-radius-sm)', fontSize: '13px', transition: 'background 0.15s' }} className="zh0w5x">
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>{forum.icon}</span>
+                    <span style={{ fontWeight: 500, color: 'var(--c-text-primary)' }}>{forum.name}</span>
+                  </span>
+                  <span style={{ fontSize: '11px', color: 'var(--c-text-muted)', background: 'var(--c-bg-tertiary)', padding: '2px 6px', borderRadius: '10px' }}>{forum.threadCount}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        ))}
       </aside>
     </div>
   );
