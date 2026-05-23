@@ -1,11 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { clientApi } from '@/lib/api';
 
 export default function NewThreadPage() {
+  return (<Suspense fallback={<div className="uc4m9n"><div className="tb2k7l" /></div>}><NewThreadContent /></Suspense>);
+}
+
+function NewThreadContent() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();

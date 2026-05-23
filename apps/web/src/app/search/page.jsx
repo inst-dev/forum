@@ -1,11 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { clientApi } from '@/lib/api';
 
 export default function SearchPage() {
+  return (<Suspense fallback={<div className="uc4m9n"><div className="tb2k7l" /></div>}><SearchContent /></Suspense>);
+}
+
+function SearchContent() {
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get('query') || '';
   const initialType = searchParams.get('type') || 'all';
