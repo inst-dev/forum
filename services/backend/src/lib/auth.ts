@@ -18,11 +18,11 @@ export interface JWTPayload {
 }
 
 export function generateAccessToken(payload: JWTPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: 900 });
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: 86400 });
 }
 
 export function generateRefreshToken(payload: JWTPayload): string {
-  return jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: 604800 });
+  return jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: 31536000 });
 }
 
 export function verifyAccessToken(token: string): JWTPayload | null {

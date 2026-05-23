@@ -3,6 +3,7 @@ import { api } from '@/lib/api';
 import { notFound } from 'next/navigation';
 import { ThreadContent } from '@/components/thread/ThreadContent';
 import { CommentList } from '@/components/thread/CommentList';
+import { TimeAgo } from '@/components/ui/TimeAgo';
 
 export async function generateMetadata({ params }) {
   const res = await api.get(`/threads/${params.slug}/${params.threadId}`);
@@ -54,7 +55,8 @@ export default async function ThreadPage({ params, searchParams }) {
             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Views</span><strong>{thread.viewCount}</strong></div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Replies</span><strong>{thread.commentCount}</strong></div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Reactions</span><strong>{thread.reactionCount}</strong></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Created</span><span>{new Date(thread.createdAt).toLocaleDateString()}</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Created</span><TimeAgo date={thread.createdAt} /></div>
+            {thread.lastCommentAt && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Last Reply</span><TimeAgo date={thread.lastCommentAt} /></div>}
           </div>
         </div>
         {thread.tags?.length > 0 && (

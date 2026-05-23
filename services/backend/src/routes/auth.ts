@@ -76,7 +76,7 @@ export async function authRoutes(app: FastifyInstance) {
         refreshToken,
         ipAddress: request.ip,
         userAgent: request.headers['user-agent'] || null,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
       },
     });
 
@@ -85,14 +85,14 @@ export async function authRoutes(app: FastifyInstance) {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: 900,
+        maxAge: 86400,
         path: '/',
       })
       .setCookie('refresh_token', refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: 604800,
+        maxAge: 31536000,
         path: '/',
       });
 
@@ -191,7 +191,7 @@ export async function authRoutes(app: FastifyInstance) {
         refreshToken,
         ipAddress: ip,
         userAgent: request.headers['user-agent'] || null,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
       },
     });
 
@@ -212,14 +212,14 @@ export async function authRoutes(app: FastifyInstance) {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: 900,
+        maxAge: 86400,
         path: '/',
       })
       .setCookie('refresh_token', refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: 604800,
+        maxAge: 31536000,
         path: '/',
       });
 
@@ -299,7 +299,7 @@ export async function authRoutes(app: FastifyInstance) {
         refreshToken: newRefreshToken,
         ipAddress: request.ip,
         userAgent: request.headers['user-agent'] || null,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
       },
     });
 

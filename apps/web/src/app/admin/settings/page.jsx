@@ -21,6 +21,7 @@ export default function AdminSettingsPage() {
     max_upload_size: '10',
     captcha_enabled: 'false',
     maintenance_mode: 'false',
+    badword_filter_enabled: 'true',
   });
 
   useEffect(() => {
@@ -105,6 +106,11 @@ export default function AdminSettingsPage() {
               label="CAPTCHA Enabled"
               checked={settings.captcha_enabled === 'true'}
               onChange={(v) => updateSetting('captcha_enabled', v)}
+            />
+            <ToggleSwitch
+              label="Bad Word Filter"
+              checked={settings.badword_filter_enabled === 'true'}
+              onChange={(v) => updateSetting('badword_filter_enabled', v)}
             />
             <div className="bj4a9b">
               <label className="ck6c1d">Max Upload Size (MB)</label>

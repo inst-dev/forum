@@ -16,7 +16,26 @@ export function ThreadContent({ thread }) {
   const [bookmarked, setBookmarked] = useState(false);
   const [watching, setWatching] = useState(false);
 
+  // Check if already bookmarked/watching on mount
+  useEffect(() => {
+    if (!user) return;
+    async function checkState() {
+      const [bRes, wRes] = await Promise.all([
+        clientApi.get('/users/bookmarks?limit=100'),
+        clientApi.get('/users/watched-threads?limit=100'),
+      ]);
+      if (bRes.success && bRes.data) {
+        setBookmarked(bRes.data.some(t => t.id === thread.id));
+      }
+      if (wRes.success && wRes.data) {
+        setWatching(wRes.data.some(t => t.id === thread.id));
+      }
+    }
+    checkState();
+  }, [user, thread.id]);
+
   const handleBookmark = async () => {
+    if (!user) { toast.error('Please log in'); return; }
     const res = await clientApi.post(`/threads/${thread.id}/bookmark`);
     if (res.success) {
       setBookmarked(res.data.bookmarked);
@@ -25,6 +44,7 @@ export function ThreadContent({ thread }) {
   };
 
   const handleWatch = async () => {
+    if (!user) { toast.error('Please log in'); return; }
     const res = await clientApi.post(`/threads/${thread.id}/watch`);
     if (res.success) {
       setWatching(res.data.watching);
@@ -52,7 +72,7 @@ export function ThreadContent({ thread }) {
           {user && (
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={handleBookmark} className={`qy2e7f vd2o7p ${bookmarked ? 'rz4g9h' : 'tb8k3l'}`}>
-                <FiBookmark size={14} /> {bookmarked ? 'Bookmarked' : 'Bookmark'}
+                <FiBookmark size={14} /> {bookmarked ? 'Saved' : 'Save'}
               </button>
               <button onClick={handleWatch} className={`qy2e7f vd2o7p ${watching ? 'rz4g9h' : 'tb8k3l'}`}>
                 <FiEye size={14} /> {watching ? 'Watching' : 'Watch'}
@@ -72,7 +92,7 @@ export function ThreadContent({ thread }) {
             <span className="px2c7d qy4e9f">{thread.author?.memberStatus}</span>
           </div>
           <div style={{ fontSize: '13px', color: 'var(--c-text-muted)' }}>
-            Points: {thread.author?.points} &middot; Reactions: {thread.author?.reactionScore} &middot; Joined: <TimeAgo date={thread.author?.createdAt} />
+            Points: {thread.author?.points} &middot; Reactions: {thread.author?.reactionScore} &middot; Joined <TimeAgo date={thread.author?.createdAt} />
           </div>
         </div>
       </div>
@@ -83,7 +103,7 @@ export function ThreadContent({ thread }) {
       {/* Poll */}
       {thread.poll && <PollWidget poll={thread.poll} threadId={thread.id} user={user} />}
 
-      {/* Reactions & Actions */}
+      {/* Reactions & Stats */}
       <div style={{ padding: '12px 24px', borderTop: '1px solid var(--c-border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <ReactionBar targetType="THREAD" targetId={thread.id} />
         <div style={{ display: 'flex', gap: '12px', fontSize: '13px', color: 'var(--c-text-muted)' }}>
@@ -96,31 +116,29 @@ export function ThreadContent({ thread }) {
   );
 }
 
-function ReactionBar({ targetType, targetId }) {
+export function ReactionBar({ targetType, targetId }) {
   const { user } = useAuth();
   const [reacted, setReacted] = useState(null);
   const [counts, setCounts] = useState({});
-  const [loaded, setLoaded] = useState(false);
 
-  // Load existing reactions on mount
   useEffect(() => {
-    async function loadReactions() {
+    async function load() {
       const type = targetType === 'THREAD' ? 'thread' : 'comment';
       const res = await clientApi.get(`/reactions/${type}/${targetId}`);
       if (res.success && res.data) {
         const newCounts = {};
+        let myReaction = null;
         for (const [rType, users] of Object.entries(res.data)) {
           newCounts[rType] = users.length;
-          // Check if current user has reacted
           if (user && users.some(u => u.userId === user.id)) {
-            setReacted(rType);
+            myReaction = rType;
           }
         }
         setCounts(newCounts);
+        setReacted(myReaction);
       }
-      setLoaded(true);
     }
-    loadReactions();
+    load();
   }, [targetType, targetId, user]);
 
   const reactions = [
@@ -133,15 +151,17 @@ function ReactionBar({ targetType, targetId }) {
   ];
 
   const handleReact = async (type) => {
-    if (!user) {
-      toast.error('Please log in to react');
-      return;
-    }
+    if (!user) { toast.error('Please log in to react'); return; }
     const res = await clientApi.post('/reactions', { targetType, targetId, reactionType: type });
     if (res.success) {
       if (res.data.action === 'added') {
+        // If switching reaction, decrement old
+        if (reacted && reacted !== type) {
+          setCounts(prev => ({ ...prev, [reacted]: Math.max(0, (prev[reacted] || 0) - 1) }));
+        }
         setReacted(type);
         setCounts(prev => ({ ...prev, [type]: (prev[type] || 0) + 1 }));
+        toast.success(`Reacted with ${type}`);
       } else {
         setReacted(null);
         setCounts(prev => ({ ...prev, [type]: Math.max(0, (prev[type] || 0) - 1) }));
@@ -154,7 +174,7 @@ function ReactionBar({ targetType, targetId }) {
       {reactions.map(r => (
         <button key={r.type} onClick={() => handleReact(r.type)} className={`ow2a7b ${reacted === r.type ? 'px4c9d' : ''}`} title={r.label}>
           {reacted === r.type ? r.activeIcon : r.icon}
-          {(counts[r.type] || 0) > 0 && <span style={{ fontSize: '12px', fontWeight: 500 }}>{counts[r.type]}</span>}
+          {(counts[r.type] || 0) > 0 && <span style={{ fontSize: '12px', fontWeight: 600 }}>{counts[r.type]}</span>}
         </button>
       ))}
     </div>
@@ -168,36 +188,26 @@ function PollWidget({ poll, threadId, user }) {
   const handleVote = async () => {
     if (!user || selected.length === 0) return;
     const res = await clientApi.post(`/threads/${threadId}/poll/vote`, { optionIds: selected });
-    if (res.success) {
-      setVoted(true);
-      toast.success('Vote recorded');
-    } else {
-      toast.error(res.error?.message || 'Failed to vote');
-    }
+    if (res.success) { setVoted(true); toast.success('Vote recorded'); }
+    else toast.error(res.error?.message || 'Failed to vote');
   };
 
   const totalVotes = poll.totalVotes || 1;
 
   return (
     <div className="mi9v4w" style={{ margin: '0 24px 16px' }}>
-      <h3 className="nj1x6y" style={{ fontSize: '15px', fontWeight: 600 }}>{poll.question}</h3>
-      <div>
-        {poll.options.map(opt => (
-          <div key={opt.id} className="ok3z8a" onClick={() => !voted && setSelected(prev => poll.allowMultiple ? [...prev, opt.id] : [opt.id])}>
-            <div className="pl5b0c" style={{ width: voted ? `${(opt.voteCount / totalVotes) * 100}%` : '0%' }} />
-            <div className="qm7d2e">
-              <span>{opt.text}</span>
-              {voted && <span>{Math.round((opt.voteCount / totalVotes) * 100)}%</span>}
-            </div>
+      <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>{poll.question}</h3>
+      {poll.options.map(opt => (
+        <div key={opt.id} className="ok3z8a" onClick={() => !voted && setSelected(poll.allowMultiple ? [...selected, opt.id] : [opt.id])}>
+          <div className="pl5b0c" style={{ width: voted ? `${(opt.voteCount / totalVotes) * 100}%` : '0%' }} />
+          <div className="qm7d2e">
+            <span>{opt.text}</span>
+            {voted && <span>{Math.round((opt.voteCount / totalVotes) * 100)}%</span>}
           </div>
-        ))}
-      </div>
-      {!voted && user && (
-        <button onClick={handleVote} className="qy2e7f rz4g9h vd2o7p" style={{ marginTop: '8px' }}>Vote</button>
-      )}
-      <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--c-text-muted)' }}>
-        {poll.totalVotes} votes {poll.expiresAt && ` · Expires ${new Date(poll.expiresAt).toLocaleDateString()}`}
-      </div>
+        </div>
+      ))}
+      {!voted && user && <button onClick={handleVote} className="qy2e7f rz4g9h vd2o7p" style={{ marginTop: '8px' }}>Vote</button>}
+      <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--c-text-muted)' }}>{poll.totalVotes} votes</div>
     </div>
   );
 }

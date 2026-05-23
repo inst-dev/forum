@@ -12,6 +12,10 @@ interface BadWordEntry {
 }
 
 export async function getBadWords(): Promise<BadWordEntry[]> {
+  // Check if bad word filter is enabled
+  const setting = await prisma.siteSetting.findUnique({ where: { key: 'badword_filter_enabled' } });
+  if (setting && setting.value === 'false') return [];
+
   const cached = await cache.get<BadWordEntry[]>(CACHE_KEY);
   if (cached) return cached;
 
