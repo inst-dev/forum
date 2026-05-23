@@ -76,6 +76,23 @@ async function start() {
   // Health check
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
 
+  // Public site settings (non-sensitive, for frontend providers)
+  app.get('/api/site-settings', async (request, reply) => {
+    const { prisma } = await import('@nullforum/database');
+    const { cache } = await import('./lib/redis');
+    
+    const cached = await cache.get('site-settings:public');
+    if (cached) return reply.send({ success: true, data: cached });
+
+    const settings = await prisma.siteSetting.findMany({
+      where: { key: { in: ['site_name', 'site_description', 'site_logo', 'site_favicon', 'primary_color', 'maintenance_mode', 'registration_enabled'] } },
+    });
+    const mapped = settings.reduce((acc, s) => { acc[s.key] = s.value; return acc; }, {} as Record<string, string>);
+    
+    await cache.set('site-settings:public', mapped, 30);
+    return reply.send({ success: true, data: mapped });
+  });
+
   // API Routes
   await app.register(authRoutes, { prefix: '/api/auth' });
   await app.register(userRoutes, { prefix: '/api/users' });

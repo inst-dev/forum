@@ -106,9 +106,14 @@ function CommentItem({ comment, threadId, depth }) {
         <img src={comment.author?.avatar || '/default-avatar.svg'} alt="" className="go4k9l hp6m1n" style={{ borderRadius: '50%' }} />
         <div className="qm5d0e">
           <div className="rn7f2g">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
               <Link href={`/users/${comment.author?.username}`} style={{ fontWeight: 600, fontSize: '14px' }}>{comment.author?.displayName || comment.author?.username}</Link>
               <span className="px2c7d qy4e9f" style={{ fontSize: '10px' }}>{comment.author?.memberStatus || comment.author?.role}</span>
+              {comment.author?.badges?.length > 0 && comment.author.badges.map(ub => (
+                <span key={ub.badge.id} className="px2c7d" style={{ background: (ub.badge.color || '#666') + '20', color: ub.badge.color || '#666', fontSize: '10px' }} title={ub.badge.name}>
+                  {ub.badge.icon && <span>{ub.badge.icon}</span>} {ub.badge.name}
+                </span>
+              ))}
               {comment.isEdited && <span style={{ fontSize: '11px', color: 'var(--c-text-muted)' }}>(edited)</span>}
             </div>
             <TimeAgo date={comment.createdAt} className="nv8y3z" />

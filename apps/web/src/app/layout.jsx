@@ -6,6 +6,7 @@ import { Footer } from '@/components/layout/Footer';
 import { NotificationBarWrapper } from '@/components/layout/NotificationBar';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { AuthProvider } from '@/components/providers/AuthProvider';
+import { SiteSettingsProvider } from '@/components/providers/SiteSettingsProvider';
 import { Toaster } from 'sonner';
 
 export const metadata = {
@@ -26,17 +27,19 @@ export default function RootLayout({ children }) {
       <body>
         <ThemeProvider>
           <AuthProvider>
-            <div className="b7nq3p">
-              <NotificationBarWrapper />
-              <Header />
-              <main className="r4hw8c">
-                <div className="xk2m9f">
-                  {children}
-                </div>
-              </main>
-              <Footer />
-            </div>
-            <Toaster position="top-right" richColors closeButton />
+            <SiteSettingsProvider>
+              <div className="b7nq3p">
+                <NotificationBarWrapper />
+                <Header />
+                <main className="r4hw8c">
+                  <div className="xk2m9f">
+                    {children}
+                  </div>
+                </main>
+                <Footer />
+              </div>
+              <Toaster position="top-right" richColors closeButton />
+            </SiteSettingsProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

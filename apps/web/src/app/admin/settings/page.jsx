@@ -34,11 +34,20 @@ export default function AdminSettingsPage() {
   const handleSave = async () => {
     const res = await clientApi.put('/admin/settings', settings);
     if (res.success) toast.success('Settings saved successfully');
-    else toast.error('Failed to save settings');
+    else toast.error(res.error?.message || 'Failed to save settings');
   };
 
   const updateSetting = (key, value) => {
     setSettings(prev => ({ ...prev, [key]: String(value) }));
+  };
+
+  const updateSettingAndSave = (key, value) => {
+    const updated = { ...settings, [key]: String(value) };
+    setSettings(updated);
+    // Auto-save when image is uploaded
+    clientApi.put('/admin/settings', updated).then(res => {
+      if (!res.success) toast.error('Failed to save setting');
+    });
   };
 
   if (!user || user.role !== 'ADMIN') return <div className="uc4m9n"><p>Access denied.</p></div>;
@@ -69,13 +78,13 @@ export default function AdminSettingsPage() {
           <div className="ai2y7z">
             <ImageUpload
               currentImage={settings.site_logo}
-              onUpload={(url) => updateSetting('site_logo', url)}
+              onUpload={(url) => updateSettingAndSave('site_logo', url)}
               type="attachment"
               label="Site Logo"
             />
             <ImageUpload
               currentImage={settings.site_favicon}
-              onUpload={(url) => updateSetting('site_favicon', url)}
+              onUpload={(url) => updateSettingAndSave('site_favicon', url)}
               type="attachment"
               label="Favicon"
             />
