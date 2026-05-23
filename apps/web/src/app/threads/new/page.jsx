@@ -29,8 +29,10 @@ function NewThreadContent() {
     if (form.content.length < 10) { toast.error('Content must be at least 10 characters'); return; }
 
     setLoading(true);
-    const tags = form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : undefined;
-    const res = await clientApi.post('/threads', { ...form, tags });
+    const tags = form.tags ? form.tags.split(',').map(t => t.trim()).filter(t => t.length > 0) : undefined;
+    const payload = { forumId: form.forumId, title: form.title, content: form.content, type: form.type };
+    if (tags && tags.length > 0) payload.tags = tags;
+    const res = await clientApi.post('/threads', payload);
     setLoading(false);
 
     if (res.success) {
