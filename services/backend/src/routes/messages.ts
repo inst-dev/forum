@@ -4,6 +4,7 @@ import { createMessageSchema } from '@nullforum/shared';
 import { authenticate, JWTPayload } from '../lib/auth';
 import { filterContent } from '../lib/profanity';
 import { rateLimitCache } from '../lib/redis';
+import { getIO } from '../realtime/socket';
 
 export async function messageRoutes(app: FastifyInstance) {
   // Get unread message count
@@ -229,6 +230,19 @@ export async function messageRoutes(app: FastifyInstance) {
         link: `/messages/${conversation.id}`,
       },
     });
+
+    // Emit real-time socket event to recipient
+    const io = getIO();
+    if (io) {
+      io.to(`user:${body.recipientId}`).emit('message:new', {
+        conversationId: conversation.id,
+        message: message,
+      });
+      io.to(`conversation:${conversation.id}`).emit('message:new', {
+        conversationId: conversation.id,
+        message: message,
+      });
+    }
 
     return reply.status(201).send({ success: true, data: message });
   });

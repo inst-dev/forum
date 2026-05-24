@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
+import { useSocket } from '@/components/providers/SocketProvider';
 import { useParams } from 'next/navigation';
 import { clientApi } from '@/lib/api';
 import { toast } from 'sonner';
@@ -10,6 +11,7 @@ import Link from 'next/link';
 
 export default function DirectMessagePage() {
   const { user } = useAuth();
+  const { socket, connected } = useSocket();
   const params = useParams();
   const targetUsername = params.username;
 
@@ -19,32 +21,77 @@ export default function DirectMessagePage() {
   const [newMsg, setNewMsg] = useState('');
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [typing, setTyping] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
-  const pollRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const audioRef = useRef(null);
 
   useEffect(() => {
     if (!user || !targetUsername) return;
     loadRecipientAndMessages();
-
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
   }, [user, targetUsername]);
 
-  // Poll for new messages every 3 seconds
+  // Socket: listen for real-time messages
   useEffect(() => {
-    if (!conversationId) return;
-    pollRef.current = setInterval(async () => {
-      const msgRes = await clientApi.get(`/messages/conversations/${conversationId}`);
-      if (msgRes.success && msgRes.data.length !== messages.length) {
-        setMessages(msgRes.data);
-        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    if (!socket || !conversationId) return;
+
+    // Join conversation room
+    socket.emit('conversation:join', conversationId);
+
+    const handleNewMessage = (data) => {
+      if (data.conversationId === conversationId && data.message?.sender?.id !== user.id) {
+        setMessages(prev => [...prev, data.message]);
+        playSound();
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
       }
-    }, 3000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [conversationId, messages.length]);
+    };
+
+    const handleTyping = (data) => {
+      if (data.conversationId === conversationId && data.userId !== user.id) {
+        setIsTyping(true);
+        setTimeout(() => setIsTyping(false), 3000);
+      }
+    };
+
+    const handleStopTyping = (data) => {
+      if (data.conversationId === conversationId) setIsTyping(false);
+    };
+
+    socket.on('message:new', handleNewMessage);
+    socket.on('message:typing', handleTyping);
+    socket.on('message:stopTyping', handleStopTyping);
+
+    return () => {
+      socket.emit('conversation:leave', conversationId);
+      socket.off('message:new', handleNewMessage);
+      socket.off('message:typing', handleTyping);
+      socket.off('message:stopTyping', handleStopTyping);
+    };
+  }, [socket, conversationId, user]);
+
+  // Fallback polling if socket not connected
+  useEffect(() => {
+    if (connected || !conversationId) return;
+    const interval = setInterval(async () => {
+      const msgRes = await clientApi.get(`/messages/conversations/${conversationId}`);
+      if (msgRes.success && msgRes.data.length > messages.length) {
+        setMessages(msgRes.data);
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [connected, conversationId, messages.length]);
+
+  const playSound = () => {
+    try {
+      if (!audioRef.current) {
+        audioRef.current = new Audio('/notification.mp3');
+        audioRef.current.volume = 0.4;
+      }
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(() => {});
+    } catch {}
+  };
 
   const loadRecipientAndMessages = async () => {
     const profileRes = await clientApi.get(`/users/${targetUsername}`);
@@ -77,25 +124,32 @@ export default function DirectMessagePage() {
     if (res.success) {
       setMessages(prev => [...prev, res.data]);
       setNewMsg('');
+      // Emit stop typing
+      if (socket && conversationId) socket.emit('message:stopTyping', { conversationId });
       if (!conversationId) {
-        // Reload to get conversation ID
         const convRes = await clientApi.get('/messages/conversations');
         if (convRes.success) {
           const existing = convRes.data.find(c => c.otherUser?.id === recipient.id);
           if (existing) setConversationId(existing.id);
         }
       }
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
     } else {
       toast.error(res.error?.message || 'Failed to send');
     }
     setSending(false);
   };
 
-  // Simulate typing indicator (visual only for now)
   const handleInputChange = (e) => {
     setNewMsg(e.target.value);
-    // Could emit typing event via WebSocket here
+    // Emit typing event
+    if (socket && conversationId && e.target.value.length > 0) {
+      socket.emit('message:typing', { conversationId });
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        socket.emit('message:stopTyping', { conversationId });
+      }, 2000);
+    }
   };
 
   if (!user) return <div className="uc4m9n"><p>Please log in to send messages.</p></div>;
@@ -104,10 +158,11 @@ export default function DirectMessagePage() {
 
   return (
     <div>
-      <div style={{ marginBottom: '16px' }}>
+      <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Link href="/messages" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '14px', color: 'var(--c-text-muted)' }}>
           <FiArrowLeft size={14} /> Back to messages
         </Link>
+        {connected && <span style={{ fontSize: '11px', color: 'var(--c-success)' }}>● Live</span>}
       </div>
 
       <div className="xf6s1t" style={{ padding: 0, overflow: 'hidden', height: 'calc(100vh - 220px)', display: 'flex', flexDirection: 'column' }}>
@@ -116,7 +171,9 @@ export default function DirectMessagePage() {
           <img src={recipient.avatar || '/default-avatar.svg'} alt="" className="go4k9l hp6m1n" style={{ borderRadius: '50%' }} />
           <div>
             <Link href={`/users/${recipient.username}`} style={{ fontWeight: 600, fontSize: '14px' }}>{recipient.displayName || recipient.username}</Link>
-            <div style={{ fontSize: '12px', color: 'var(--c-text-muted)' }}>@{recipient.username}</div>
+            <div style={{ fontSize: '12px', color: isTyping ? 'var(--c-accent)' : 'var(--c-text-muted)' }}>
+              {isTyping ? 'typing...' : `@${recipient.username}`}
+            </div>
           </div>
         </div>
 
@@ -135,6 +192,16 @@ export default function DirectMessagePage() {
               </div>
             </div>
           ))}
+          {isTyping && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
+              <div style={{ display: 'flex', gap: '3px' }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--c-text-muted)', animation: 'pulse 1.2s infinite', animationDelay: '0s' }} />
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--c-text-muted)', animation: 'pulse 1.2s infinite', animationDelay: '0.2s' }} />
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--c-text-muted)', animation: 'pulse 1.2s infinite', animationDelay: '0.4s' }} />
+              </div>
+              <span style={{ fontSize: '12px', color: 'var(--c-text-muted)' }}>{recipient.username} is typing</span>
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </div>
 
