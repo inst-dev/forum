@@ -13,20 +13,11 @@ export function ProfileActions({ profileId, profileUsername }) {
   const [following, setFollowing] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Check follow status on mount
-  useState(() => {
-    if (!user || user.id === profileId) return;
-    async function check() {
-      const res = await clientApi.get(`/users/${profileId}/followers?limit=1`);
-      // We'll just track state from the toggle action
-    }
-  });
-
   if (!user || user.id === profileId) return null;
 
   const handleFollow = async () => {
     setLoading(true);
-    const res = await clientApi.post(`/users/${profileId}/follow`);
+    const res = await clientApi.post(`/users/${profileId}/follow`, {});
     if (res.success) {
       setFollowing(res.data.following);
       toast.success(res.data.following ? `Following @${profileUsername}` : `Unfollowed @${profileUsername}`);
@@ -36,14 +27,13 @@ export function ProfileActions({ profileId, profileUsername }) {
     setLoading(false);
   };
 
-  const handleMessage = async () => {
-    // Navigate to messages - the backend will create/find conversation on first message
-    router.push(`/messages?to=${profileId}`);
+  const handleMessage = () => {
+    router.push(`/messages/${profileUsername}`);
   };
 
   const handleBlock = async () => {
     if (!confirm(`Block @${profileUsername}? They won't be able to see your profile or message you.`)) return;
-    const res = await clientApi.post(`/users/${profileId}/block`);
+    const res = await clientApi.post(`/users/${profileId}/block`, {});
     if (res.success) {
       toast.success(res.data.blocked ? 'User blocked' : 'User unblocked');
     }

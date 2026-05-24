@@ -1,22 +1,14 @@
 'use client';
 
-import { useState, useEffect, useRef, Suspense } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
-import { useSearchParams } from 'next/navigation';
 import { clientApi } from '@/lib/api';
 import { toast } from 'sonner';
-import { FiSend, FiSearch, FiPlus } from 'react-icons/fi';
+import { FiSend, FiSearch, FiPlus, FiMessageSquare } from 'react-icons/fi';
 import { TimeAgo } from '@/components/ui/TimeAgo';
 
 export default function MessagesPage() {
-  return (<Suspense fallback={<div className="uc4m9n"><div className="tb2k7l" /></div>}><MessagesContent /></Suspense>);
-}
-
-function MessagesContent() {
   const { user } = useAuth();
-  const searchParams = useSearchParams();
-  const toUserId = searchParams.get('to');
-
   const [conversations, setConversations] = useState([]);
   const [active, setActive] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -31,13 +23,6 @@ function MessagesContent() {
     if (user) loadConversations();
   }, [user]);
 
-  // Handle ?to=userId (start conversation from profile)
-  useEffect(() => {
-    if (toUserId && user) {
-      startConversationWith(toUserId);
-    }
-  }, [toUserId, user]);
-
   const loadConversations = async () => {
     const res = await clientApi.get('/messages/conversations');
     if (res.success) setConversations(res.data);
@@ -50,20 +35,6 @@ function MessagesContent() {
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
   };
 
-  const startConversationWith = async (recipientId) => {
-    // Send a placeholder to trigger conversation creation, or check existing
-    const existing = conversations.find(c => c.otherUser?.id === recipientId);
-    if (existing) {
-      loadConversation(existing);
-    } else {
-      // Fetch user info
-      const res = await clientApi.get(`/users/${recipientId}/followers?limit=1`);
-      // Set active with minimal info - conversation will be created on first message
-      setActive({ id: null, otherUser: { id: recipientId } });
-      setMessages([]);
-    }
-  };
-
   const sendMessage = async (e) => {
     e.preventDefault();
     if (!newMsg.trim() || sending) return;
@@ -74,7 +45,7 @@ function MessagesContent() {
     if (res.success) {
       setMessages(prev => [...prev, res.data]);
       setNewMsg('');
-      loadConversations(); // Refresh list
+      loadConversations();
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     } else {
       toast.error(res.error?.message || 'Failed to send');
@@ -107,7 +78,6 @@ function MessagesContent() {
         </button>
       </div>
 
-      {/* New Chat Search */}
       {showNewChat && (
         <div className="xf6s1t" style={{ marginBottom: '16px' }}>
           <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
@@ -129,7 +99,6 @@ function MessagesContent() {
       )}
 
       <div className="dz1d6e">
-        {/* Conversation List */}
         <div className="ea3f8g">
           {conversations.map(conv => (
             <div key={conv.id} onClick={() => loadConversation(conv)} className="zh0w5x" style={{ cursor: 'pointer', padding: '12px 16px', background: active?.id === conv.id ? 'var(--c-bg-hover)' : undefined }}>
@@ -151,12 +120,11 @@ function MessagesContent() {
           ))}
           {conversations.length === 0 && (
             <div className="uc4m9n" style={{ padding: '20px' }}>
-              <p style={{ fontSize: '13px', color: 'var(--c-text-muted)', textAlign: 'center' }}>No conversations yet.<br />Click "New Chat" to start one.</p>
+              <p style={{ fontSize: '13px', color: 'var(--c-text-muted)', textAlign: 'center' }}>No conversations yet.<br />Click &quot;New Chat&quot; to start one.</p>
             </div>
           )}
         </div>
 
-        {/* Messages Panel */}
         <div className="fb5h0i">
           {active ? (
             <>
