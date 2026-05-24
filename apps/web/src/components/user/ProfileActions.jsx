@@ -1,19 +1,37 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { clientApi } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { FiUserPlus, FiUserCheck, FiMessageSquare, FiUserX } from 'react-icons/fi';
+import { FiUserPlus, FiUserCheck, FiMessageSquare, FiUserX, FiUserMinus } from 'react-icons/fi';
 
 export function ProfileActions({ profileId, profileUsername }) {
   const { user } = useAuth();
   const router = useRouter();
-  const [following, setFollowing] = useState(null);
+  const [following, setFollowing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [checkingFollow, setCheckingFollow] = useState(true);
+
+  // Check follow status on mount
+  useEffect(() => {
+    if (!user || user.id === profileId) { setCheckingFollow(false); return; }
+    async function checkFollowStatus() {
+      try {
+        const res = await clientApi.get(`/users/${profileId}/followers?limit=100`);
+        if (res.success && res.data) {
+          const isFollowing = res.data.some(f => f.id === user.id);
+          setFollowing(isFollowing);
+        }
+      } catch {}
+      setCheckingFollow(false);
+    }
+    checkFollowStatus();
+  }, [user, profileId]);
 
   if (!user || user.id === profileId) return null;
+  if (checkingFollow) return null;
 
   const handleFollow = async () => {
     setLoading(true);
@@ -42,7 +60,7 @@ export function ProfileActions({ profileId, profileUsername }) {
   return (
     <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
       <button onClick={handleFollow} disabled={loading} className={`qy2e7f ${following ? 'tb8k3l' : 'rz4g9h'}`} style={{ fontSize: '14px' }}>
-        {following ? <><FiUserCheck size={16} /> Following</> : <><FiUserPlus size={16} /> Follow</>}
+        {following ? <><FiUserMinus size={16} /> Unfollow</> : <><FiUserPlus size={16} /> Follow</>}
       </button>
       <button onClick={handleMessage} className="qy2e7f sa6i1j" style={{ fontSize: '14px' }}>
         <FiMessageSquare size={16} /> Message
