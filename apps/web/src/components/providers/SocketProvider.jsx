@@ -1,8 +1,9 @@
 'use client';
 
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { useAuth } from './AuthProvider';
 import { io } from 'socket.io-client';
+import { clientApi } from '@/lib/api';
 
 const SocketContext = createContext({ socket: null, connected: false });
 
@@ -23,41 +24,47 @@ export function SocketProvider({ children }) {
       return;
     }
 
-    // Get auth token from cookie (the session token)
-    const token = document.cookie
-      .split('; ')
-      .find(row => row.startsWith('nf_access='))
-      ?.split('=')[1] || '';
+    // Fetch socket auth token from API (bypasses HttpOnly cookie restriction)
+    async function connectSocket() {
+      try {
+        const res = await clientApi.get('/auth/socket-token');
+        if (!res.success || !res.data?.token) return;
 
-    if (!token) return;
+        const socket = io(SOCKET_URL, {
+          auth: { token: res.data.token },
+          transports: ['websocket', 'polling'],
+          reconnection: true,
+          reconnectionDelay: 2000,
+          reconnectionAttempts: 15,
+        });
 
-    const socket = io(SOCKET_URL, {
-      auth: { token },
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionAttempts: 10,
-    });
+        socket.on('connect', () => {
+          setConnected(true);
+        });
 
-    socket.on('connect', () => {
-      setConnected(true);
-      console.log('[Socket] Connected');
-    });
+        socket.on('disconnect', () => {
+          setConnected(false);
+        });
 
-    socket.on('disconnect', () => {
-      setConnected(false);
-    });
+        socket.on('connect_error', (err) => {
+          console.log('[Socket] Error:', err.message);
+          setConnected(false);
+        });
 
-    socket.on('connect_error', (err) => {
-      console.log('[Socket] Connection error:', err.message);
-    });
+        socketRef.current = socket;
+      } catch (err) {
+        console.log('[Socket] Failed to get token');
+      }
+    }
 
-    socketRef.current = socket;
+    connectSocket();
 
     return () => {
-      socket.disconnect();
-      socketRef.current = null;
-      setConnected(false);
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+        setConnected(false);
+      }
     };
   }, [user]);
 
