@@ -14,19 +14,39 @@ export default function DirectMessagePage() {
   const targetUsername = params.username;
 
   const [recipient, setRecipient] = useState(null);
+  const [conversationId, setConversationId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMsg, setNewMsg] = useState('');
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [typing, setTyping] = useState(false);
   const messagesEndRef = useRef(null);
+  const pollRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
 
   useEffect(() => {
     if (!user || !targetUsername) return;
     loadRecipientAndMessages();
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, [user, targetUsername]);
 
+  // Poll for new messages every 3 seconds
+  useEffect(() => {
+    if (!conversationId) return;
+    pollRef.current = setInterval(async () => {
+      const msgRes = await clientApi.get(`/messages/conversations/${conversationId}`);
+      if (msgRes.success && msgRes.data.length !== messages.length) {
+        setMessages(msgRes.data);
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+      }
+    }, 3000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [conversationId, messages.length]);
+
   const loadRecipientAndMessages = async () => {
-    // Get recipient profile
     const profileRes = await clientApi.get(`/users/${targetUsername}`);
     if (!profileRes.success) {
       toast.error('User not found');
@@ -35,11 +55,11 @@ export default function DirectMessagePage() {
     }
     setRecipient(profileRes.data);
 
-    // Check if conversation exists
     const convRes = await clientApi.get('/messages/conversations');
     if (convRes.success) {
       const existing = convRes.data.find(c => c.otherUser?.username === targetUsername || c.otherUser?.id === profileRes.data.id);
       if (existing) {
+        setConversationId(existing.id);
         const msgRes = await clientApi.get(`/messages/conversations/${existing.id}`);
         if (msgRes.success) setMessages(msgRes.data);
       }
@@ -57,11 +77,25 @@ export default function DirectMessagePage() {
     if (res.success) {
       setMessages(prev => [...prev, res.data]);
       setNewMsg('');
+      if (!conversationId) {
+        // Reload to get conversation ID
+        const convRes = await clientApi.get('/messages/conversations');
+        if (convRes.success) {
+          const existing = convRes.data.find(c => c.otherUser?.id === recipient.id);
+          if (existing) setConversationId(existing.id);
+        }
+      }
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     } else {
       toast.error(res.error?.message || 'Failed to send');
     }
     setSending(false);
+  };
+
+  // Simulate typing indicator (visual only for now)
+  const handleInputChange = (e) => {
+    setNewMsg(e.target.value);
+    // Could emit typing event via WebSocket here
   };
 
   if (!user) return <div className="uc4m9n"><p>Please log in to send messages.</p></div>;
@@ -87,7 +121,7 @@ export default function DirectMessagePage() {
         </div>
 
         {/* Messages */}
-        <div className="gc7j2k" style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
           {messages.length === 0 && (
             <div className="uc4m9n" style={{ flex: 1 }}>
               <p style={{ color: 'var(--c-text-muted)', fontSize: '14px' }}>Send a message to start the conversation with @{recipient.username}</p>
@@ -106,7 +140,7 @@ export default function DirectMessagePage() {
 
         {/* Input */}
         <form onSubmit={sendMessage} className="hd9l4m">
-          <input type="text" className="dl8e3f" style={{ flex: 1 }} value={newMsg} onChange={e => setNewMsg(e.target.value)} placeholder={`Message @${recipient.username}...`} autoFocus />
+          <input type="text" className="dl8e3f" style={{ flex: 1 }} value={newMsg} onChange={handleInputChange} placeholder={`Message @${recipient.username}...`} autoFocus />
           <button type="submit" className="qy2e7f rz4g9h" disabled={sending || !newMsg.trim()}>
             <FiSend size={16} />
           </button>

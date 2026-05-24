@@ -6,6 +6,21 @@ import { filterContent } from '../lib/profanity';
 import { rateLimitCache } from '../lib/redis';
 
 export async function messageRoutes(app: FastifyInstance) {
+  // Get unread message count
+  app.get('/unread-count', { preHandler: [authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const user = (request as any).user as JWTPayload;
+
+    const count = await prisma.directMessage.count({
+      where: {
+        recipientId: user.userId,
+        isRead: false,
+        deletedAt: null,
+      },
+    });
+
+    return reply.send({ success: true, data: { count } });
+  });
+
   // Get conversations
   app.get('/conversations', { preHandler: [authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
     const user = (request as any).user as JWTPayload;

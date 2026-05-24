@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { useSiteSettings } from '@/components/providers/SiteSettingsProvider';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FiSun, FiMoon, FiMenu, FiBell, FiMessageSquare, FiSettings, FiLogOut, FiUser, FiBookmark, FiShield } from 'react-icons/fi';
 import { clientApi } from '@/lib/api';
 
@@ -13,6 +13,48 @@ export function Header() {
   const { theme, toggleTheme } = useTheme();
   const { siteName, siteLogo } = useSiteSettings();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const audioRef = useRef(null);
+
+  // Poll for unread counts
+  useEffect(() => {
+    if (!user) return;
+    let interval;
+
+    async function fetchUnread() {
+      try {
+        const [msgRes, notifRes] = await Promise.all([
+          clientApi.get('/messages/unread-count'),
+          clientApi.get('/notifications?unread=true&limit=1'),
+        ]);
+        const newMsgCount = msgRes.success ? (msgRes.data?.count || 0) : 0;
+        const newNotifCount = notifRes.success ? (notifRes.meta?.total || 0) : 0;
+
+        // Play sound if new messages arrived
+        if (newMsgCount > unreadMessages && unreadMessages > 0) {
+          playNotificationSound();
+        }
+
+        setUnreadMessages(newMsgCount);
+        setUnreadNotifications(newNotifCount);
+      } catch {}
+    }
+
+    fetchUnread();
+    interval = setInterval(fetchUnread, 10000); // Poll every 10 seconds
+    return () => clearInterval(interval);
+  }, [user]);
+
+  const playNotificationSound = () => {
+    try {
+      if (!audioRef.current) {
+        audioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgipix');
+      }
+      audioRef.current.volume = 0.3;
+      audioRef.current.play().catch(() => {});
+    } catch {}
+  };
 
   const handleThemeToggle = async () => {
     toggleTheme();
@@ -46,8 +88,18 @@ export function Header() {
 
           {user ? (
             <>
-              <Link href="/notifications" className="tb8k3l qy2e7f vd2o7p" aria-label="Notifications"><FiBell size={18} /></Link>
-              <Link href="/messages" className="tb8k3l qy2e7f vd2o7p" aria-label="Messages"><FiMessageSquare size={18} /></Link>
+              <Link href="/notifications" className="tb8k3l qy2e7f vd2o7p" aria-label="Notifications" style={{ position: 'relative' }}>
+                <FiBell size={18} />
+                {unreadNotifications > 0 && <span style={{ position: 'absolute', top: '2px', right: '2px', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--c-error)' }} />}
+              </Link>
+              <Link href="/messages" className="tb8k3l qy2e7f vd2o7p" aria-label="Messages" style={{ position: 'relative' }}>
+                <FiMessageSquare size={18} />
+                {unreadMessages > 0 && (
+                  <span style={{ position: 'absolute', top: '0px', right: '0px', minWidth: '16px', height: '16px', borderRadius: '8px', background: 'var(--c-error)', color: '#fff', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
+                    {unreadMessages > 9 ? '9+' : unreadMessages}
+                  </span>
+                )}
+              </Link>
               <div className="xf8s3t">
                 <button onClick={() => setMenuOpen(!menuOpen)} className="mv8t2u" style={{ cursor: 'pointer' }}>
                   <img src={user.avatar || '/default-avatar.svg'} alt={user.username} className="go4k9l hp6m1n" style={{ borderRadius: '50%' }} />
