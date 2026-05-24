@@ -7,6 +7,7 @@ import { NotificationBarWrapper } from '@/components/layout/NotificationBar';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { AuthProvider } from '@/components/providers/AuthProvider';
 import { SiteSettingsProvider } from '@/components/providers/SiteSettingsProvider';
+import { SocketProvider } from '@/components/providers/SocketProvider';
 import { ConfirmProvider } from '@/components/ui/ConfirmDialog';
 import { Toaster } from 'sonner';
 
@@ -28,7 +29,8 @@ export default function RootLayout({ children }) {
       <body>
         <ThemeProvider>
           <AuthProvider>
-            <SiteSettingsProvider>
+            <SocketProvider>
+              <SiteSettingsProvider>
               <ConfirmProvider>
                 <div className="b7nq3p">
                   <NotificationBarWrapper />
@@ -43,6 +45,7 @@ export default function RootLayout({ children }) {
                 <Toaster position="top-right" richColors closeButton />
               </ConfirmProvider>
             </SiteSettingsProvider>
+            </SocketProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

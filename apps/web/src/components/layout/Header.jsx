@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { useSiteSettings } from '@/components/providers/SiteSettingsProvider';
+import { useSocket } from '@/components/providers/SocketProvider';
 import { useState, useEffect, useRef } from 'react';
 import { FiSun, FiMoon, FiMenu, FiBell, FiMessageSquare, FiSettings, FiLogOut, FiUser, FiBookmark, FiShield } from 'react-icons/fi';
 import { clientApi } from '@/lib/api';
@@ -12,12 +13,13 @@ export function Header() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { siteName, siteLogo } = useSiteSettings();
+  const { socket } = useSocket();
   const [menuOpen, setMenuOpen] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const audioRef = useRef(null);
 
-  // Poll for unread counts
+  // Poll for unread counts + listen to socket
   useEffect(() => {
     if (!user) return;
     let interval;
@@ -28,23 +30,28 @@ export function Header() {
           clientApi.get('/messages/unread-count'),
           clientApi.get('/notifications?unread=true&limit=1'),
         ]);
-        const newMsgCount = msgRes.success ? (msgRes.data?.count || 0) : 0;
-        const newNotifCount = notifRes.success ? (notifRes.meta?.total || 0) : 0;
-
-        // Play sound if new messages arrived
-        if (newMsgCount > unreadMessages && unreadMessages > 0) {
-          playNotificationSound();
-        }
-
-        setUnreadMessages(newMsgCount);
-        setUnreadNotifications(newNotifCount);
+        setUnreadMessages(msgRes.success ? (msgRes.data?.count || 0) : 0);
+        setUnreadNotifications(notifRes.success ? (notifRes.meta?.total || 0) : 0);
       } catch {}
     }
 
     fetchUnread();
-    interval = setInterval(fetchUnread, 10000); // Poll every 10 seconds
+    interval = setInterval(fetchUnread, 15000);
     return () => clearInterval(interval);
   }, [user]);
+
+  // Socket: real-time unread update
+  useEffect(() => {
+    if (!socket || !user) return;
+
+    const handleNewMessage = () => {
+      setUnreadMessages(prev => prev + 1);
+      playNotificationSound();
+    };
+
+    socket.on('message:new', handleNewMessage);
+    return () => { socket.off('message:new', handleNewMessage); };
+  }, [socket, user]);
 
   const playNotificationSound = () => {
     try {

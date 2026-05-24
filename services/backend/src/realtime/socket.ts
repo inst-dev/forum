@@ -6,7 +6,14 @@ import { prisma } from '@nullforum/database';
 const ONLINE_TTL = 300; // 5 minutes
 const connectedUsers = new Map<string, Set<string>>();
 
+let ioInstance: Server | null = null;
+
+export function getIO(): Server | null {
+  return ioInstance;
+}
+
 export function setupSocketIO(io: Server) {
+  ioInstance = io;
   // Authentication middleware
   io.use(async (socket, next) => {
     const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
