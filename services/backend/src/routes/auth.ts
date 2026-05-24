@@ -521,4 +521,13 @@ export async function authRoutes(app: FastifyInstance) {
 
     return reply.send({ success: true, data: { message: 'Session revoked' } });
   });
+
+  // Get socket auth token (returns access token for WebSocket connection)
+  app.get('/socket-token', { preHandler: [authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const token = request.cookies?.access_token;
+    if (!token) {
+      return reply.status(401).send({ success: false, error: { code: 'NO_TOKEN', message: 'No token' } });
+    }
+    return reply.send({ success: true, data: { token } });
+  });
 }
