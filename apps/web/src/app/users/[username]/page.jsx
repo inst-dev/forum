@@ -3,6 +3,7 @@ import { api } from '@/lib/api';
 import { notFound } from 'next/navigation';
 import { TimeAgo } from '@/components/ui/TimeAgo';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
+import { ProfileActions } from '@/components/user/ProfileActions';
 
 export async function generateMetadata({ params }) {
   const res = await api.get(`/users/${params.username}`);
@@ -32,6 +33,8 @@ export default async function ProfilePage({ params }) {
             <p style={{ color: 'var(--c-text-muted)', fontSize: '14px' }}>@{profile.username} &middot; {profile.memberStatus}</p>
           </div>
         </div>
+
+        <ProfileActions profileId={profile.id} profileUsername={profile.username} />
 
         <div className="hd7l2m">
           {profile.bio && <p style={{ marginBottom: '12px', fontSize: '14px' }}>{profile.bio}</p>}
